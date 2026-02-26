@@ -1,0 +1,109 @@
+menu "Backlight Configuration"
+    config BACKLIGHT_ENABLED
+        bool "Enable Backlight Control"
+        default y
+        help
+            Enable backlight control functionality
+
+    config BACKLIGHT_GPIO_NUM
+        int "Backlight GPIO Number"
+        depends on BACKLIGHT_ENABLED
+        range 0 48
+        default 27
+        help
+            GPIO number for backlight control
+
+    config BACKLIGHT_DEFAULT_BRIGHTNESS
+        int "Default Brightness Percentage"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 70
+        help
+            Default backlight brightness (0-100%) when system starts.
+            This is the initial brightness used when no saved value exists.
+
+    config BACKLIGHT_MIN_BRIGHTNESS
+        int "Minimum Brightness Percentage"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 20
+        help
+            Minimum allowed brightness (0-100%). 
+            All brightness values below this will be clamped to this value.
+            Useful to prevent screen from being too dim to see.
+
+    config BACKLIGHT_MAX_BRIGHTNESS
+        int "Maximum Brightness Percentage"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 100
+        help
+            Maximum allowed brightness (0-100%). 
+            All brightness values above this will be clamped to this value.
+            Useful to limit power consumption or prevent screen burn-in.
+
+    config BACKLIGHT_USE_NVS
+        bool "Save Settings to NVS"
+        depends on BACKLIGHT_ENABLED
+        default y
+        help
+            Save brightness and mode settings to non-volatile storage
+
+    choice BACKLIGHT_DEFAULT_MODE
+        prompt "Default Backlight Mode"
+        depends on BACKLIGHT_ENABLED
+        default BACKLIGHT_DEFAULT_MODE_AUTO
+        help
+            Default backlight mode on startup
+
+        config BACKLIGHT_DEFAULT_MODE_MANUAL
+            bool "Manual"
+            help
+                Manual brightness control
+
+        config BACKLIGHT_DEFAULT_MODE_AUTO
+            bool "Auto (Time-based)"
+            help
+                Automatic brightness based on time of day
+    endchoice
+
+    config BACKLIGHT_AUTO_NIGHT_BRIGHTNESS
+        int "Auto Mode: Night Brightness (%)"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 30
+        help
+            Brightness for night time (10 PM - 6 AM)
+
+    config BACKLIGHT_AUTO_DAY_BRIGHTNESS
+        int "Auto Mode: Day Brightness (%)"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 80
+        help
+            Brightness for daytime (8 AM - 6 PM)
+
+    config BACKLIGHT_AUTO_MORNING_BRIGHTNESS
+        int "Auto Mode: Morning Brightness (%)"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 50
+        help
+            Brightness for morning (6 AM - 8 AM)
+
+    config BACKLIGHT_AUTO_EVENING_BRIGHTNESS
+        int "Auto Mode: Evening Brightness (%)"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 60
+        help
+            Brightness for evening (6 PM - 8 PM)
+
+    config BACKLIGHT_AUTO_LATE_EVENING_BRIGHTNESS
+        int "Auto Mode: Late Evening Brightness (%)"
+        depends on BACKLIGHT_ENABLED
+        range 0 100
+        default 40
+        help
+            Brightness for late evening (8 PM - 10 PM)
+endmenu
