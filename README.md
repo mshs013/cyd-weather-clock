@@ -89,7 +89,7 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 |----------|----------|
 | Display CS | 5 |
 | Display DC | 21 |
-| Display RST | 22 |
+| Display RST | -1 |
 | Display BL | 12 |
 | Touch CS | 15 |
 | Touch IRQ | 36 |
@@ -681,5 +681,6 @@ idf.py -p /dev/ttyUSB0 flash monitor
 **Happy Building!** 🚀
 
 ---
+
 
 *Last Updated: February 26, 2026*
