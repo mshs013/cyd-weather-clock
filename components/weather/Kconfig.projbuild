@@ -1,0 +1,116 @@
+menu "Weather Configuration"
+    config WEATHER_ENABLE
+        bool "Weather Component"
+        default y
+        help
+            Unified weather data component.
+            Combines current weather, forecasts, and astronomical data in a single module.
+
+    if WEATHER_ENABLE
+        config WEATHER_LATITUDE
+            string "Latitude"
+            default "40.7128"
+            depends on WEATHER_ENABLE
+            help
+                Latitude for weather data (e.g., 40.7128 for Dhaka).
+
+        config WEATHER_LONGITUDE
+            string "Longitude"
+            default "-74.0060"
+            depends on WEATHER_ENABLE
+            help
+                Longitude for weather data (e.g., -74.0060 for Dhaka).
+
+        config WEATHER_TIMEZONE
+            string "Timezone"
+            default "Asia/Dhaka"
+            depends on WEATHER_ENABLE
+            help
+                Timezone for weather data (e.g., "Asia/Dhaka", "Europe/London", or "auto").
+
+        config ASTRONOMICAL_API_KEY
+            string "Astronomical API Key"
+            default "API_KEY_HERE"
+            depends on WEATHER_ENABLE
+            help
+                API key for Visual Crossing astronomical data.
+                Leave empty to disable astronomical features.
+
+        config ASTRONOMICAL_CITY
+            string "City for Astronomical Data"
+            default "Dhaka,BD"
+            depends on WEATHER_ENABLE && ASTRONOMICAL_API_KEY != ""
+            help
+                City name for astronomical data (e.g., "Dhaka", "London", "Tokyo").
+
+        config ASTRONOMICAL_TIMEZONE
+            string "Timezone for Astronomical Data"
+            default "Asia/Dhaka"
+            depends on WEATHER_ENABLE && ASTRONOMICAL_API_KEY != ""
+            help
+                Timezone for astronomical data (e.g., "Asia/Dhaka").
+
+        config WEATHER_TASK_STACK_SIZE
+            int "Weather task stack size"
+            default 8192
+            range 1024 32768
+            depends on WEATHER_ENABLE
+            help
+                Stack size for the weather task in bytes.
+
+        config WEATHER_TASK_PRIORITY
+            int "Weather task priority"
+            default 3
+            range 0 25
+            depends on WEATHER_ENABLE
+            help
+                Task priority (0-25). Higher numbers = higher priority.
+                Typically WiFi/time tasks run at priority 5-6.
+
+        choice WEATHER_TASK_CORE
+            prompt "Task core affinity"
+            default WEATHER_TASK_CORE_AUTO
+            depends on WEATHER_ENABLE
+            help
+                Select which core the weather task runs on.
+
+            config WEATHER_TASK_CORE_0
+                bool "Core 0"
+            config WEATHER_TASK_CORE_1
+                bool "Core 1"
+            config WEATHER_TASK_CORE_AUTO
+                bool "Auto (tSMP only)"
+        endchoice
+
+        config WEATHER_TASK_CORE_ID
+            int
+            default 0 if WEATHER_TASK_CORE_0
+            default 1 if WEATHER_TASK_CORE_1
+            default -1 if WEATHER_TASK_CORE_AUTO
+
+        menu "Update Intervals"
+            depends on WEATHER_ENABLE
+
+            config WEATHER_UPDATE_INTERVAL
+                int "Weather Update Interval (minutes)"
+                default 15
+                range 1 60
+                help
+                    How often to update current weather data (in minutes).
+
+            config FORECAST_UPDATE_TIME
+                string "Forecast daily update time (HH:MM)"
+                default "00:03"
+                help
+                    Update forecast data at this time daily (24-hour format).
+
+            config ASTRONOMICAL_UPDATE_TIME
+                string "Astronomical daily update time (HH:MM)"
+                default "00:02"
+                help
+                    Update astronomical data at this time daily (24-hour format).
+        endmenu
+
+    endif # WEATHER
+
+endmenu

@@ -1,0 +1,220 @@
+menu "WiFi Clock Configuration"
+
+    menu "WiFi Configuration"
+        config WIFI_CLOCK_SSID
+            string "WiFi SSID"
+            default "myssid"
+            help
+                Default SSID to connect to.
+
+        config WIFI_CLOCK_PASSWORD
+            string "WiFi Password"
+            default "mypassword"
+            help
+                Default WiFi password.
+
+        config WIFI_CLOCK_HOSTNAME
+            string "Hostname"
+            default "cyd-clock"
+            help
+                Hostname to set for the device.
+
+        config WIFI_CLOCK_AUTO_CONNECT
+            bool "Auto-reconnect on disconnect"
+            default y
+            help
+                Automatically reconnect to WiFi when disconnected.
+
+        config WIFI_CLOCK_POWER_SAVE_MODE
+            int "Power save mode"
+            default 1
+            range 0 2
+            help
+                WiFi power save mode: 0=WIFI_PS_NONE, 1=WIFI_PS_MIN_MODEM, 2=WIFI_PS_MAX_MODEM.
+    endmenu
+
+    menu "Time Configuration"
+        config WIFI_CLOCK_TIMEZONE
+            string "Timezone"
+            default "Asia/Dhaka"
+            help
+                Timezone string (e.g., "UTC-6", "GMT+6", "Asia/Dhaka").
+
+        config WIFI_CLOCK_FORMAT_24H
+            bool "Use 24-hour format"
+            default y
+            help
+                Use 24-hour time format. If disabled, 12-hour format with AM/PM is used.
+
+        config WIFI_CLOCK_NTP_SERVER
+            string "NTP Server 1"
+            default "pool.ntp.org"
+            help
+                Primary NTP server.
+
+        config WIFI_CLOCK_NTP_SERVER_2
+            string "NTP Server 2"
+            default "time.nist.gov"
+            help
+                Secondary NTP server.
+
+        config WIFI_CLOCK_NTP_SERVER_3
+            string "NTP Server 3"
+            default "time.google.com"
+            help
+                Tertiary NTP server.
+
+        config WIFI_CLOCK_SYNC_RETRY_COUNT
+            int "NTP sync retry count"
+            default 3
+            range 1 10
+            help
+                Number of NTP sync retries.
+
+        config WIFI_CLOCK_SYNC_TIMEOUT_MS
+            int "NTP sync timeout (ms)"
+            default 5000
+            range 1000 30000
+            help
+                Timeout for NTP synchronization.
+
+        config WIFI_CLOCK_SYNC_RETRY_INTERVAL_MS
+            int "NTP sync retry interval (ms)"
+            default 2000
+            range 1000 30000
+            help
+                Interval between NTP sync retries.
+
+        config WIFI_CLOCK_ENABLE_DAILY_SYNC
+            bool "Enable daily time sync"
+            default y
+            help
+                Synchronize time with NTP server daily.
+
+        config WIFI_CLOCK_DAILY_SYNC_HOUR
+            int "Daily sync hour"
+            default 3
+            range 0 23
+            depends on WIFI_CLOCK_ENABLE_DAILY_SYNC
+            help
+                Hour of day for daily sync (0-23).
+
+        config WIFI_CLOCK_DAILY_SYNC_MINUTE
+            int "Daily sync minute"
+            default 0
+            range 0 59
+            depends on WIFI_CLOCK_ENABLE_DAILY_SYNC
+            help
+                Minute of hour for daily sync (0-59).
+    endmenu
+
+    menu "Provisioning Configuration"
+        config WIFI_CLOCK_ENABLE_PROVISIONING
+            bool "Enable WiFi provisioning"
+            default y
+            help
+                Enable WiFi provisioning functionality.
+
+        config WIFI_CLOCK_PROV_SOFT_AP_SSID
+            string "SoftAP SSID"
+            default "WIFI_CLOCK_PROV"
+            depends on WIFI_CLOCK_ENABLE_PROVISIONING
+            help
+                SSID for SoftAP provisioning mode.
+
+        config WIFI_CLOCK_PROV_SOFT_AP_PASSWORD
+            string "SoftAP Password"
+            default ""
+            depends on WIFI_CLOCK_ENABLE_PROVISIONING
+            help
+                Password for SoftAP provisioning mode (empty for open).
+
+        config WIFI_CLOCK_PROV_SOFT_AP_MAX_RETRIES
+            int "SoftAP provisioning max retries"
+            default 3
+            range 1 10
+            depends on WIFI_CLOCK_ENABLE_PROVISIONING
+            help
+                Maximum retry attempts for SoftAP provisioning.
+
+        config WIFI_CLOCK_PROV_SOFT_AP_TIMEOUT_MS
+            int "SoftAP provisioning timeout (ms)"
+            default 30000
+            range 30000 1800000
+            depends on WIFI_CLOCK_ENABLE_PROVISIONING
+            help
+                Timeout for SoftAP provisioning in milliseconds.
+    endmenu
+
+    menu "Task Configuration"
+        config WIFI_CLOCK_TASK_STACK_SIZE
+            int "Task stack size"
+            default 4096
+            range 2048 16384
+            help
+                Stack size for WiFi Clock task.
+
+        config WIFI_CLOCK_TASK_PRIORITY
+            int "Task priority"
+            default 5
+            range 1 25
+            help
+                Priority for WiFi Clock task.
+
+        config WIFI_CLOCK_TASK_CORE_ID
+            int "Task core ID"
+            default 0
+            range 0 1
+            help
+                Core ID to run WiFi Clock task on.
+
+        config WIFI_CLOCK_TIME_UPDATE_INTERVAL_MS
+            int "Time update interval (ms)"
+            default 1000
+            range 100 60000
+            help
+                Interval for updating time display.
+
+        config WIFI_CLOCK_EVENT_QUEUE_SIZE
+            int "Event queue size"
+            default 10
+            range 5 50
+            help
+                Size of internal event queue.
+    endmenu
+
+    menu "Advanced Configuration"
+        config WIFI_CLOCK_ENABLE_LOGGING
+            bool "Enable logging"
+            default y
+            help
+                Enable component logging.
+
+        config WIFI_CLOCK_ENABLE_DEBUG
+            bool "Enable debug logging"
+            default n
+            depends on WIFI_CLOCK_ENABLE_LOGGING
+            help
+                Enable verbose debug logging.
+
+        config WIFI_CLOCK_ENABLE_MANUAL_SYNC
+            bool "Enable manual time sync"
+            default y
+            help
+                Allow manual time synchronization.
+
+        config WIFI_CLOCK_ENABLE_CALLBACKS
+            bool "Enable event callbacks"
+            default y
+            help
+                Enable user event callbacks.
+
+        config WIFI_CLOCK_MUTEX_TIMEOUT_MS
+            int "Mutex timeout (ms)"
+            default 1000
+            range 100 5000
+            help
+                Timeout for mutex acquisition.
+    endmenu
+
+endmenu

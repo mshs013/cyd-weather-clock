@@ -1,0 +1,257 @@
+menu "CYD Display Configuration"
+
+    # ========== Display Configuration ==========
+    config CYD_DISPLAY_ENABLED
+        bool "Enable CYD Display"
+        default y
+        help
+            Enable Cheap Yellow Display support
+
+    if CYD_DISPLAY_ENABLED
+
+    config CYD_DISPLAY_WIDTH
+        int "Display Width"
+        default 480
+        range 0 480
+        help
+            Display width in pixels
+
+    config CYD_DISPLAY_HEIGHT
+        int "Display Height"
+        default 320
+        range 0 320
+        help
+            Display height in pixels
+
+    config CYD_DISPLAY_SPI_MOSI
+        int "SPI MOSI pin"
+        default 23
+        help
+            GPIO pin for SPI MOSI
+
+    config CYD_DISPLAY_SPI_MISO
+        int "SPI MISO pin"
+        default 19
+        help
+            GPIO pin for SPI MISO
+
+    config CYD_DISPLAY_SPI_SCLK
+        int "SPI SCLK pin"
+        default 18
+        help
+            GPIO pin for SPI clock
+
+    config CYD_DISPLAY_SPI_CS
+        int "Display CS pin"
+        default 5
+        help
+            GPIO pin for display chip select
+
+    config CYD_DISPLAY_SPI_DC
+        int "Display DC pin"
+        default 21
+        help
+            GPIO pin for display data/command
+
+    config CYD_DISPLAY_SPI_RST
+        int "Display Reset pin"
+        default -1
+        help
+            GPIO pin for display reset
+
+    config CYD_DISPLAY_SPI_FREQ
+        int "SPI Frequency (MHz)"
+        default 20
+        range 1 80
+        help
+            SPI clock frequency in MHz for display communication
+
+    config CYD_DISPLAY_BUFFER_LINES
+        int "LVGL Buffer Lines"
+        default 40
+        range 10 100
+        help
+            Number of lines for LVGL display buffer. Higher values use more RAM
+            but can improve performance.
+
+    config CYD_DISPLAY_INVERT_COLOR
+        bool "Invert Display Colors"
+        default n
+        help
+            Enable if your display needs color inversion
+
+    config CYD_DISPLAY_SWAP_XY
+        bool "Swap X and Y axes"
+        default n
+        help
+            Swap X and Y axes for display orientation
+
+    config CYD_DISPLAY_MIRROR_X
+        bool "Mirror X axis"
+        default n
+        help
+            Mirror display horizontally
+
+    config CYD_DISPLAY_MIRROR_Y
+        bool "Mirror Y axis"
+        default n
+        help
+            Mirror display vertically
+
+    # ========== Touch Configuration ==========
+    config CYD_TOUCH_ENABLED
+        bool "Enable Touch Controller"
+        default y
+        help
+            Enable XPT2046 touch controller
+
+    config CYD_TOUCH_SPI_CS
+        int "Touch CS pin"
+        depends on CYD_TOUCH_ENABLED
+        default 15
+        help
+            GPIO pin for touch chip select
+
+    config CYD_TOUCH_SPI_IRQ
+        int "Touch IRQ pin"
+        depends on CYD_TOUCH_ENABLED
+        default 36
+        help
+            GPIO pin for touch interrupt
+
+    config CYD_TOUCH_SPI_FREQ
+        int "Touch SPI Frequency (MHz)"
+        depends on CYD_TOUCH_ENABLED
+        default 1
+        range 1 5
+        help
+            SPI clock frequency in MHz for touch communication
+
+    config CYD_TOUCH_SWAP_XY
+        bool "Swap Touch X and Y axes"
+        depends on CYD_TOUCH_ENABLED
+        default n
+        help
+            Swap X and Y axes for touch coordinates
+
+    config CYD_TOUCH_MIRROR_X
+        bool "Mirror Touch X axis"
+        depends on CYD_TOUCH_ENABLED
+        default n
+        help
+            Mirror touch coordinates horizontally
+
+    config CYD_TOUCH_MIRROR_Y
+        bool "Mirror Touch Y axis"
+        depends on CYD_TOUCH_ENABLED
+        default n
+        help
+            Mirror touch coordinates vertically
+
+    # ========== Backlight Configuration ==========
+    menu "Backlight Configuration"
+
+        config CYD_BACKLIGHT_ENABLED
+            bool "Enable Backlight Control"
+            default y
+            help
+                Enable backlight control functionality
+
+        if CYD_BACKLIGHT_ENABLED
+
+        config CYD_BACKLIGHT_GPIO_NUM
+            int "Backlight GPIO Number"
+            range 0 48
+            default 27
+            help
+                GPIO number for backlight control
+
+        config CYD_BACKLIGHT_DEFAULT_BRIGHTNESS
+            int "Default Brightness Percentage"
+            range 0 100
+            default 70
+            help
+                Default backlight brightness (0-100%) when system starts.
+                This is the initial brightness used when no saved value exists.
+
+        config CYD_BACKLIGHT_MIN_BRIGHTNESS
+            int "Minimum Brightness Percentage"
+            range 0 100
+            default 20
+            help
+                Minimum allowed brightness (0-100%). 
+                All brightness values below this will be clamped to this value.
+                Useful to prevent screen from being too dim to see.
+
+        config CYD_BACKLIGHT_MAX_BRIGHTNESS
+            int "Maximum Brightness Percentage"
+            range 0 100
+            default 100
+            help
+                Maximum allowed brightness (0-100%). 
+                All brightness values above this will be clamped to this value.
+                Useful to limit power consumption or prevent screen burn-in.
+
+        config CYD_BACKLIGHT_USE_NVS
+            bool "Save Settings to NVS"
+            default y
+            help
+                Save brightness and mode settings to non-volatile storage
+
+        choice CYD_BACKLIGHT_DEFAULT_MODE
+            prompt "Default Backlight Mode"
+            default CYD_BACKLIGHT_DEFAULT_MODE_AUTO
+            help
+                Default backlight mode on startup
+
+            config CYD_BACKLIGHT_DEFAULT_MODE_MANUAL
+                bool "Manual"
+                help
+                    Manual brightness control
+
+            config CYD_BACKLIGHT_DEFAULT_MODE_AUTO
+                bool "Auto (Time-based)"
+                help
+                    Automatic brightness based on time of day
+        endchoice
+
+        config CYD_BACKLIGHT_AUTO_NIGHT_BRIGHTNESS
+            int "Auto Mode: Night Brightness (%)"
+            range 0 100
+            default 30
+            help
+                Brightness for night time (10 PM - 6 AM)
+
+        config CYD_BACKLIGHT_AUTO_MORNING_BRIGHTNESS
+            int "Auto Mode: Morning Brightness (%)"
+            range 0 100
+            default 50
+            help
+                Brightness for morning (6 AM - 8 AM)
+
+        config CYD_BACKLIGHT_AUTO_DAY_BRIGHTNESS
+            int "Auto Mode: Day Brightness (%)"
+            range 0 100
+            default 80
+            help
+                Brightness for daytime (8 AM - 6 PM)
+
+        config CYD_BACKLIGHT_AUTO_EVENING_BRIGHTNESS
+            int "Auto Mode: Evening Brightness (%)"
+            range 0 100
+            default 60
+            help
+                Brightness for evening (6 PM - 8 PM)
+
+        config CYD_BACKLIGHT_AUTO_LATE_EVENING_BRIGHTNESS
+            int "Auto Mode: Late Evening Brightness (%)"
+            range 0 100
+            default 40
+            help
+                Brightness for late evening (8 PM - 10 PM)
+
+        endif # CYD_BACKLIGHT_ENABLED
+    endmenu # Backlight Configuration
+
+    endif # CYD_DISPLAY_ENABLED
+endmenu # CYD Display Configuration
