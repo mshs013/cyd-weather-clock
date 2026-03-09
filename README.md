@@ -106,81 +106,64 @@ cyd-weather-clock/
 │
 ├── main/
 │   ├── main.c                 # Application entry point
-│   └── CMakeLists.txt
+│   └── CMakeLists.txt          # Component registration with UI sources
 │
 ├── components/
-│   ├── wifi_clock/            # WiFi connection + status management
+│   ├── cyd_display/            # CYD specific display driver (NEW)
+│   │   ├── cyd_display.c
+│   │   ├── cyd_display.h
+│   │   ├── Kconfig
+│   │   └── CMakeLists.txt
+│   │
+│   ├── wifi_clock/             # WiFi connection + status management
 │   │   ├── wifi_clock.c
-│   │   ├── wifi_clock.h       # Public API for WiFi clock
-│   │   ├── Kconfig            # WiFi clock configuration options
+│   │   ├── wifi_clock.h        # Public API for WiFi clock
+│   │   ├── Kconfig             # WiFi clock configuration options
 │   │   └── CMakeLists.txt
 │   │
-│   ├── weather/                # Weather API handling
+│   ├── wifi_provisioning/       # WiFi provisioning handler (NEW)
+│   │   ├── wifi_prov.c
+│   │   ├── wifi_prov.h
+│   │   ├── Kconfig
+│   │   └── CMakeLists.txt
+│   │
+│   ├── weather/                 # Weather API handling
 │   │   ├── weather.c
-│   │   ├── weather.h           # Public API for weather data
-│   │   ├── Kconfig             # Weather configuration options
+│   │   ├── weather.h            # Public API for weather data
+│   │   ├── Kconfig              # Weather configuration options
 │   │   └── CMakeLists.txt
 │   │
-│   ├── backlight/              # Display brightness control
-│   │   ├── backlight.c
-│   │   ├── backlight.h         # Public API for backlight control
-│   │   ├── Kconfig             # Backlight configuration options
-│   │   └── CMakeLists.txt
-│   │
-│   ├── ui/                     # LVGL GUI & screens (SquareLine Studio export)
-│   │   ├── ui.c
-│   │   ├── ui.h
-│   │   ├── ui_events.c
-│   │   ├── ui_events.h
-│   │   ├── ui_helpers.c
-│   │   ├── ui_helpers.h
-│   │   ├── ui_images.h
-│   │   ├── screens/
-│   │   │   ├── ui_Main.c
-│   │   │   ├── ui_Main.h
-│   │   │   ├── ui_Provision.c
-│   │   │   ├── ui_Provision.h
-│   │   │   ├── ui_Forecast.c
-│   │   │   └── ui_Forecast.h
-│   │   ├── images/
-│   │   │   ├── ui_img_icon_01d_72p_png.c
-│   │   │   ├── ui_img_icon_01n_72p_png.c
-│   │   │   ├── ui_img_icon_wifion_24p_png.c
-│   │   │   ├── ui_img_icon_wifioff_24p_png.c
-│   │   │   ├── ui_img_icon_auto_brightness_16p_png.c
-│   │   │   ├── ui_img_icon_man_brightness_16p_png.c
-│   │   │   └── ... (all weather icons)
-│   │   └── CMakeLists.txt
-│   │
-│   ├── lvgl_esp32_drivers/     # Display and touch drivers
-│   │   ├── lvgl_tft/
-│   │   │   ├── st7796.c
-│   │   │   └── st7796.h
-│   │   ├── lvgl_touch/
-│   │   │   ├── xpt2046.c
-│   │   │   └── xpt2046.h
-│   │   ├── Kconfig              # Driver configuration options
-│   │   └── CMakeLists.txt
-│   │
-│   └── lv_port/                # LVGL porting files
-│       ├── lv_port_disp.c
-│       ├── lv_port_disp.h
-│       ├── lv_port_indev.c
-│       └── lv_port_indev.h
+│   └── ui/                      # LVGL GUI & screens (SquareLine Studio export)
+│       ├── ui.c
+│       ├── ui.h
+│       ├── ui_events.c
+│       ├── ui_events.h
+│       ├── ui_helpers.c
+│       ├── ui_helpers.h
+│       ├── ui_images.h
+│       ├── screens/
+│       │   ├── ui_Main.c
+│       │   ├── ui_Main.h
+│       │   ├── ui_Provision.c
+│       │   ├── ui_Provision.h
+│       │   ├── ui_Forecast.c
+│       │   └── ui_Forecast.h
+│       ├── images/
+│       │   ├── ui_img_icon_01d_72p_png.c
+│       │   ├── ui_img_icon_01n_72p_png.c
+│       │   ├── ui_img_icon_wifion_24p_png.c
+│       │   ├── ui_img_icon_wifioff_24p_png.c
+│       │   ├── ui_img_icon_auto_brightness_16p_png.c
+│       │   ├── ui_img_icon_man_brightness_16p_png.c
+│       │   └── ... (all weather icons)
+│       └── CMakeLists.txt
 │
 ├── managed_components/
-│   ├── lvgl__lvgl/             # LVGL library
-│   └── espressif__esp-dsp/     # DSP library (if used)
+│   ├── lvgl__lvgl/              # LVGL library
+│   └── espressif__esp-dsp/      # DSP library (if used)
 │
 ├── docs/
 │   └── images/                  # Screenshots for README
-│       ├── ESP32-3248S035.jpg
-│       ├── lvgl_display.png
-│       ├── lvgl_touch.png
-│       ├── startup_screen.png
-│       ├── home_screen.png
-│       ├── forecast_screen.png
-│       └── provisioning_screen.png
 │
 ├── sdkconfig
 ├── sdkconfig.defaults
@@ -194,13 +177,11 @@ cyd-weather-clock/
 
 | Component | Header File | Description |
 |-----------|-------------|-------------|
-| **wifi_clock** | `wifi_clock.h` | WiFi connection, NTP sync, provisioning API |
+| **cyd_display** | `cyd_display.h` | CYD-specific display initialization and control (NEW) |
+| **wifi_clock** | `wifi_clock.h` | WiFi connection, NTP sync |
+| **wifi_provisioning** | `wifi_prov.h` | Provisioning handler with QR code (NEW) |
 | **weather** | `weather.h` | Weather data structures and API functions |
-| **backlight** | `backlight.h` | Brightness control, mode selection, NVS storage |
 | **ui** | `ui.h`, `ui_helpers.h`, `ui_events.h` | LVGL screens and event handlers |
-| **st7796** | `st7796.h` | Display driver initialization and control |
-| **xpt2046** | `xpt2046.h` | Touch controller initialization and reading |
-| **lv_port** | `lv_port_disp.h`, `lv_port_indev.h` | LVGL display and input porting layer |
 
 ### Kconfig Files
 
@@ -208,10 +189,10 @@ Each component has its own `Kconfig` file that exposes configuration options in 
 
 | Component | Kconfig | Configuration Options |
 |-----------|---------|----------------------|
-| **wifi_clock** | `components/wifi_clock/Kconfig` | WiFi SSID/password, NTP servers, timezone, auto-reconnect |
+| **cyd_display** | `components/cyd_display/Kconfig` | Display SPI pins, orientation, backlight |
+| **wifi_clock** | `components/wifi_clock/Kconfig` | WiFi SSID/password, NTP servers, timezone |
+| **wifi_provisioning** | `components/wifi_provisioning/Kconfig` | Provisioning AP settings, timeout |
 | **weather** | `components/weather/Kconfig` | Lat/lon, update intervals, API keys |
-| **backlight** | `components/backlight/Kconfig` | GPIO pin, brightness presets, default mode |
-| **lvgl_esp32_drivers** | `components/lvgl_esp32_drivers/Kconfig` | SPI pins, display orientation, touch calibration |
 
 ---
 
@@ -248,10 +229,30 @@ idf.py menuconfig
 ```
 
 Navigate to key configuration sections:
+- **CYD Display Configuration** - SPI pins, backlight settings
 - **WiFi Clock Configuration** - Set your WiFi defaults, timezone, NTP servers
+- **WiFi Provisioning Configuration** - AP name, security, timeout
 - **Weather Configuration** - Set latitude/longitude, update intervals, API keys
-- **Backlight Control** - Configure brightness presets and modes
-- **LVGL Configuration** - Adjust display settings, buffer sizes
+
+### Build System Notes
+The main component uses a recursive glob pattern to automatically include all UI source files:
+```cmake
+file(GLOB_RECURSE UI_SOURCES "ui/*.c")
+idf_component_register(SRCS "main.c" ${UI_SOURCES}
+                    INCLUDE_DIRS "." "ui"
+                    PRIV_REQUIRES spi_flash cyd_display wifi_provisioning wifi_clock weather)
+
+# Optimize binary size by removing unused sections
+target_link_options(${COMPONENT_LIB} PRIVATE 
+    "-Wl,--gc-sections"
+    "-Wl,--strip-all"
+)
+```
+
+This ensures:
+- ✅ All UI files are automatically included without manual listing
+- ✅ Clean component dependencies management
+- ✅ Optimized binary size with dead code elimination
 
 ### Build
 ```bash
@@ -392,6 +393,21 @@ Component config → Weather Configuration → Astronomical Configuration
 ### Menuconfig Settings
 Open with `idf.py menuconfig`
 
+#### CYD Display Configuration
+```
+Component config → CYD Display Configuration
+├── Display SPI MOSI (GPIO 23)
+├── Display SPI MISO (GPIO 19)
+├── Display SPI SCK (GPIO 18)
+├── Display CS (GPIO 5)
+├── Display DC (GPIO 21)
+├── Display RST (GPIO 22)
+├── Display Backlight (GPIO 12)
+├── Touch CS (GPIO 15)
+├── Touch IRQ (GPIO 36)
+└── Display Orientation (LANDSCAPE)
+```
+
 #### WiFi Clock Configuration
 ```
 Component config → WiFi Clock Configuration
@@ -407,6 +423,17 @@ Component config → WiFi Clock Configuration
 ├── Enable daily sync (YES)
 │   └── Daily sync time (03:00)
 └── Power save mode (WIFI_PS_NONE)
+```
+
+#### WiFi Provisioning Configuration
+```
+Component config → WiFi Provisioning Configuration
+├── Provisioning AP SSID (WIFI_CLOCK_PROV)
+├── AP Security (WIFI_PROV_SEC_1)
+├── AP Password (optional)
+├── Max retries (5)
+├── Provisioning timeout (300 seconds)
+└── QR Code version (2)
 ```
 
 #### Weather Configuration
@@ -427,23 +454,6 @@ Component config → Weather Configuration
     ├── Stack size (4096)
     ├── Priority (2)
     └── Core ID (1)
-```
-
-#### Backlight Configuration
-```
-Component config → Backlight Control
-├── GPIO pin (12)
-├── Default brightness (80%)
-├── Default mode (Auto)
-├── Use NVS storage (YES)
-├── Min brightness (5%)
-├── Max brightness (100%)
-└── Auto brightness presets
-    ├── Night brightness (10%)
-    ├── Morning brightness (30%)
-    ├── Day brightness (80%)
-    ├── Evening brightness (50%)
-    └── Late evening brightness (25%)
 ```
 
 ---
@@ -490,13 +500,21 @@ Component config → Backlight Control
 | **No data** | Network issue | Check WiFi connection, verify API endpoint is reachable |
 | **Parse error** | API format changed | Update JSON parser, check for API changes |
 
+### Build Issues
+| Problem | Solution |
+|---------|----------|
+| **UI files not found** | Ensure `GLOB_RECURSE` pattern matches your UI directory structure |
+| **Linker errors** | Check component dependencies in `PRIV_REQUIRES` |
+| **Binary too large** | `--gc-sections` and `--strip-all` flags help reduce size |
+| **Undefined references** | Verify all required components are listed in `PRIV_REQUIRES` |
+
 ### Debug Commands
 ```bash
 # Monitor with all debug output
 idf.py monitor
 
 # Filter specific components
-idf.py monitor | grep -E "MAIN|WEATHER|WIFI|BACKLIGHT"
+idf.py monitor | grep -E "MAIN|WEATHER|WIFI|BACKLIGHT|PROV"
 
 # Check free memory
 # In monitor, type: free
@@ -524,7 +542,7 @@ nvs_flash_init();   // Re-initialize
 | **NTP sync** | 1-2 seconds |
 | **Weather update** | 1-3 seconds |
 | **RAM usage** | ~400KB (of ~4MB) |
-| **Flash usage** | ~2.5MB (of ~4MB) |
+| **Flash usage** | ~2.5MB (of ~4MB) - Optimized with GC sections |
 | **Power consumption** | 80-150mA (depending on brightness) |
 
 ---
@@ -553,6 +571,13 @@ nvs_flash_init();   // Re-initialize
 - [ ] **Swipe Navigation** - Switch between screens with gestures
 - [ ] **Sleep Mode** - Deep sleep between updates for battery operation
 
+### Recent Updates (v1.1)
+- ✅ **Modular component structure** - Separated display, WiFi, and provisioning logic
+- ✅ **Automated UI source inclusion** - Using `GLOB_RECURSE` for easier maintenance
+- ✅ **Binary size optimization** - Added linker flags to strip unused sections
+- ✅ **CYD-specific display driver** - Streamlined hardware initialization
+- ✅ **Dedicated provisioning component** - Cleaner separation of concerns
+
 ---
 
 ## 🤝 Contributing
@@ -570,6 +595,7 @@ Contributions are welcome! Here's how you can help:
 - Add comments for complex logic
 - Test on actual hardware when possible
 - Update documentation for new features
+- Ensure build system changes maintain compatibility
 
 ---
 
@@ -667,7 +693,7 @@ cd cyd-weather-clock
 
 # 3. Configure
 idf.py menuconfig
-# Set your WiFi, weather location, API keys, etc.
+# Set your WiFi, weather location, API keys, display pins, etc.
 
 # 4. Build and flash
 idf.py build
@@ -682,4 +708,4 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 ---
 
-*Last Updated: February 26, 2026*
+*Last Updated: March 09, 2026*
