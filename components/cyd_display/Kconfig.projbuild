@@ -5,80 +5,97 @@ menu "CYD Display Configuration"
         bool "Enable CYD Display"
         default y
         help
-            Enable Cheap Yellow Display support
+            Enable Cheap Yellow Display (CYD) support.
+            This enables the ST7796 display controller and related hardware.
 
     if CYD_DISPLAY_ENABLED
 
         config CYD_DISPLAY_WIDTH
-            int "Display Width"
+            int "Display Width (pixels)"
             default 320
             range 0 480
             help
-                Display width in pixels
+                Physical display width in pixels.
+                - For portrait: 320
+                - For landscape: 480
 
         config CYD_DISPLAY_HEIGHT
-            int "Display Height"
+            int "Display Height (pixels)"
             default 480
             range 0 480
             help
-                Display height in pixels
+                Physical display height in pixels.
+                - For portrait: 480
+                - For landscape: 320
 
         config CYD_DISPLAY_SPI_MOSI
             int "SPI MOSI pin"
             default 13
             help
-                GPIO pin for SPI MOSI
+                GPIO pin for SPI MOSI (Master Out Slave In).
+                CYD default: GPIO13
 
         config CYD_DISPLAY_SPI_MISO
             int "SPI MISO pin"
             default 12
             help
-                GPIO pin for SPI MISO
+                GPIO pin for SPI MISO (Master In Slave Out).
+                CYD default: GPIO12
 
         config CYD_DISPLAY_SPI_SCLK
             int "SPI SCLK pin"
             default 14
             help
-                GPIO pin for SPI clock
+                GPIO pin for SPI clock.
+                CYD default: GPIO14
 
         config CYD_DISPLAY_SPI_CS
             int "Display CS pin"
             default 15
             help
-                GPIO pin for display chip select
+                GPIO pin for display chip select.
+                CYD default: GPIO15
 
         config CYD_DISPLAY_SPI_DC
             int "Display DC pin"
             default 2
             help
-                GPIO pin for display data/command
+                GPIO pin for display data/command control.
+                CYD default: GPIO2
 
         config CYD_DISPLAY_SPI_RST
             int "Display Reset pin"
             default -1
             help
-                GPIO pin for display reset
+                GPIO pin for display reset.
+                Use -1 if not connected or if using software reset.
+                CYD default: -1 (not connected)
 
         config CYD_DISPLAY_SPI_FREQ
             int "SPI Frequency (MHz)"
             default 10
             range 1 80
             help
-                SPI clock frequency in MHz for display communication
+                SPI clock frequency in MHz for display communication.
+                Higher values = faster refresh but may cause instability.
+                Recommended: 10-20 MHz for CYD.
 
         config CYD_DISPLAY_BUFFER_LINES
             int "LVGL Buffer Lines"
             default 40
             range 10 100
             help
-                Number of lines for LVGL display buffer. Higher values use more RAM
-                but can improve performance.
+                Number of lines for LVGL display buffer.
+                Higher values use more RAM but improve performance.
+                Formula: RAM used = width * buffer_lines * 2 (RGB565)
+                For 320x480 with 40 lines: ~25KB per buffer
 
         config CYD_DISPLAY_INVERT_COLOR
             bool "Invert Display Colors"
             default n
             help
-                Enable if your display needs color inversion
+                Enable if your display needs color inversion.
+                Some CYD variants require this for correct colors.
 
         # ========== Display Axis Mapping ==========
         menu "Display Axis Mapping"
@@ -88,19 +105,29 @@ menu "CYD Display Configuration"
                 default y
                 help
                     Swap X and Y axes for display orientation.
-                    For CYD with 320x480 display in portrait mode, this should be enabled.
+                    
+                    - ENABLED: 320x480 portrait mode (taller display)
+                      LVGL will see 480x320 landscape
+                    
+                    - DISABLED: 480x320 landscape mode (wider display)
+                      LVGL will see native resolution
+                    
+                    Most CYD boards have the display mounted in portrait
+                    orientation, so this should be ENABLED.
 
             config CYD_DISPLAY_MIRROR_X
                 bool "Mirror Display X axis"
                 default n
                 help
-                    Mirror display horizontally
+                    Mirror display horizontally.
+                    Enable if text appears mirrored left-to-right.
 
             config CYD_DISPLAY_MIRROR_Y
                 bool "Mirror Display Y axis"
                 default n
                 help
-                    Mirror display vertically
+                    Mirror display vertically.
+                    Enable if text appears upside down.
 
         endmenu
 
@@ -109,7 +136,7 @@ menu "CYD Display Configuration"
             bool "Enable Touch Controller"
             default y
             help
-                Enable XPT2046 touch controller
+                Enable XPT2046 resistive touch controller.
 
         if CYD_TOUCH_ENABLED
 
@@ -117,20 +144,23 @@ menu "CYD Display Configuration"
                 int "Touch CS pin"
                 default 33
                 help
-                    GPIO pin for touch chip select
+                    GPIO pin for touch chip select.
+                    CYD default: GPIO33
 
             config CYD_TOUCH_SPI_IRQ
                 int "Touch IRQ pin"
                 default 36
                 help
-                    GPIO pin for touch interrupt
+                    GPIO pin for touch interrupt.
+                    CYD default: GPIO36 (input only)
 
             config CYD_TOUCH_SPI_FREQ
                 int "Touch SPI Frequency (MHz)"
                 default 1
                 range 1 5
                 help
-                    SPI clock frequency in MHz for touch communication
+                    SPI clock frequency in MHz for touch communication.
+                    Keep low (1-2 MHz) for reliable touch reading.
 
             # ========== Touch Axis Mapping ==========
             menu "Touch Axis Mapping"
@@ -140,8 +170,12 @@ menu "CYD Display Configuration"
                     default y
                     help
                         Swap X and Y axes for touch coordinates.
-                        Enable if touching left/right gives vertical movement.
-                        For most CYD displays, this should be ENABLED.
+                        
+                        Enable if:
+                        - Touching left/right gives vertical movement
+                        - Touching top/bottom gives horizontal movement
+                        
+                        Most CYD displays need this ENABLED.
 
                 config CYD_TOUCH_INVERT_X
                     bool "Invert Touch X axis"
@@ -156,6 +190,8 @@ menu "CYD Display Configuration"
                     help
                         Invert the Y axis mapping.
                         Enable if touch moves opposite direction on Y axis.
+                        
+                        Many CYD displays need this ENABLED for Y axis.
 
             endmenu
 
@@ -164,35 +200,39 @@ menu "CYD Display Configuration"
 
                 config CYD_TOUCH_X_MIN
                     int "Touch X Minimum Raw Value"
-                    default 55
+                    default 22
                     range 0 4095
                     help
                         Minimum raw X value from touch controller.
-                        Touch at left edge of screen.
+                        Touch at LEFT edge of screen and use the value shown.
+                        Range: 0-4095 (12-bit ADC)
 
                 config CYD_TOUCH_X_MAX
                     int "Touch X Maximum Raw Value"
-                    default 1965
+                    default 305
                     range 0 4095
                     help
                         Maximum raw X value from touch controller.
-                        Touch at right edge of screen.
+                        Touch at RIGHT edge of screen and use the value shown.
+                        Range: 0-4095 (12-bit ADC)
 
                 config CYD_TOUCH_Y_MIN
                     int "Touch Y Minimum Raw Value"
-                    default 140
+                    default 14
                     range 0 4095
                     help
                         Minimum raw Y value from touch controller.
-                        Touch at top edge of screen.
+                        Touch at TOP edge of screen and use the value shown.
+                        Range: 0-4095 (12-bit ADC)
 
                 config CYD_TOUCH_Y_MAX
                     int "Touch Y Maximum Raw Value"
-                    default 1940
+                    default 466
                     range 0 4095
                     help
                         Maximum raw Y value from touch controller.
-                        Touch at bottom edge of screen.
+                        Touch at BOTTOM edge of screen and use the value shown.
+                        Range: 0-4095 (12-bit ADC)
 
             endmenu # Touch Calibration
 
@@ -205,7 +245,7 @@ menu "CYD Display Configuration"
                 bool "Enable Backlight Control"
                 default y
                 help
-                    Enable backlight control functionality
+                    Enable backlight control functionality (PWM or GPIO).
 
             if CYD_BACKLIGHT_ENABLED
 
@@ -214,87 +254,90 @@ menu "CYD Display Configuration"
                     range 0 48
                     default 27
                     help
-                        GPIO number for backlight control
+                        GPIO number for backlight control.
+                        CYD default: GPIO27
 
                 config CYD_BACKLIGHT_DEFAULT_BRIGHTNESS
-                    int "Default Brightness Percentage"
+                    int "Default Brightness (%)"
                     range 0 100
                     default 70
                     help
                         Default backlight brightness (0-100%) when system starts.
-                        This is the initial brightness used when no saved value exists.
+                        This is used when no saved value exists in NVS.
 
                 config CYD_BACKLIGHT_MIN_BRIGHTNESS
-                    int "Minimum Brightness Percentage"
+                    int "Minimum Brightness (%)"
                     range 0 100
                     default 20
                     help
-                        Minimum allowed brightness (0-100%). 
-                        All brightness values below this will be clamped to this value.
-                        Useful to prevent screen from being too dim to see.
+                        Minimum allowed brightness (0-100%).
+                        Values below this are clamped.
+                        Prevents screen from being too dim to see.
 
                 config CYD_BACKLIGHT_MAX_BRIGHTNESS
-                    int "Maximum Brightness Percentage"
+                    int "Maximum Brightness (%)"
                     range 0 100
                     default 100
                     help
-                        Maximum allowed brightness (0-100%). 
-                        All brightness values above this will be clamped to this value.
-                        Useful to limit power consumption or prevent screen burn-in.
+                        Maximum allowed brightness (0-100%).
+                        Values above this are clamped.
+                        Can limit power consumption.
 
                 config CYD_BACKLIGHT_USE_NVS
                     bool "Save Settings to NVS"
                     default y
                     help
-                        Save brightness and mode settings to non-volatile storage
+                        Save brightness and mode settings to non-volatile storage (NVS).
+                        Settings persist across reboots.
 
                 choice CYD_BACKLIGHT_DEFAULT_MODE
                     prompt "Default Backlight Mode"
                     default CYD_BACKLIGHT_DEFAULT_MODE_AUTO
                     help
-                        Default backlight mode on startup
+                        Default backlight mode on startup.
 
                     config CYD_BACKLIGHT_DEFAULT_MODE_MANUAL
                         bool "Manual"
                         help
-                            Manual brightness control
+                            Manual brightness control using saved or default value.
 
                     config CYD_BACKLIGHT_DEFAULT_MODE_AUTO
                         bool "Auto (Time-based)"
                         help
-                            Automatic brightness based on time of day
+                            Automatic brightness based on time of day.
+                            Uses configured brightness levels for different times.
                 endchoice
 
                 config CYD_BACKLIGHT_AUTO_NIGHT_BRIGHTNESS
-                    int "Auto Mode: Night Brightness (%)"
+                    int "Night Brightness (%)"
                     range 0 100
                     default 30
                     help
                         Brightness for night time (10 PM - 6 AM)
 
                 config CYD_BACKLIGHT_AUTO_MORNING_BRIGHTNESS
-                    int "Auto Mode: Morning Brightness (%)"
+                    int "Morning Brightness (%)"
                     range 0 100
                     default 50
                     help
                         Brightness for morning (6 AM - 8 AM)
 
                 config CYD_BACKLIGHT_AUTO_DAY_BRIGHTNESS
-                    int "Auto Mode: Day Brightness (%)"
+                    int "Day Brightness (%)"
                     range 0 100
                     default 80
                     help
                         Brightness for daytime (8 AM - 6 PM)
 
                 config CYD_BACKLIGHT_AUTO_EVENING_BRIGHTNESS
-                    int "Auto Mode: Evening Brightness (%)"
+                    int "Evening Brightness (%)"
                     range 0 100
                     default 60
                     help
                         Brightness for evening (6 PM - 8 PM)
 
                 config CYD_BACKLIGHT_AUTO_LATE_EVENING_BRIGHTNESS
-                    int "Auto Mode: Late Evening Brightness (%)"
+                    int "Late Evening Brightness (%)"
                     range 0 100
                     default 40
                     help
