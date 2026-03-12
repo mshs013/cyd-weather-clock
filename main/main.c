@@ -178,7 +178,7 @@ void ui_event_brightness(lv_event_t * e)
     lv_event_code_t code = lv_event_get_code(e);
 
     // Only process if we're in manual mode
-    if(cyd_display_get_backlight_mode() != BACKLIGHT_MODE_MANUAL) {
+    if(cyd_display_get_backlight_mode() != CYD_BACKLIGHT_MODE_MANUAL) {
         return;
     }
 
@@ -226,13 +226,13 @@ void ui_event_imageiconbrightness(lv_event_t * e)
 
     if(event_code == LV_EVENT_PRESSED) {
         // Save current mode before toggling
-        backlight_mode_t previous_mode = cyd_display_get_backlight_mode();
+        cyd_backlight_mode_t previous_mode = cyd_display_get_backlight_mode();
         
         // Toggle the mode
         cyd_display_toggle_auto_mode();
         
         // Get the new mode
-        backlight_mode_t new_mode = cyd_display_get_backlight_mode();
+        cyd_backlight_mode_t new_mode = cyd_display_get_backlight_mode();
         
         // Only update if mode actually changed
         if (previous_mode != new_mode) {
@@ -253,7 +253,7 @@ void ui_event_imageiconbrightness(lv_event_t * e)
                     // Optional: Update info label
                     if (label_info != NULL) {
                         char info_buf[64];
-                        if (new_mode == BACKLIGHT_MODE_AUTO_TIME) {
+                        if (new_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
                             snprintf(info_buf, sizeof(info_buf), "Auto brightness: %d%%", current_brightness);
                         } else {
                             snprintf(info_buf, sizeof(info_buf), "Manual brightness: %d%%", current_brightness);
@@ -270,7 +270,7 @@ void ui_event_imageiconbrightness(lv_event_t * e)
             cyd_display_save_mode_to_nvs(new_mode);
             
             // If switching to auto mode, apply brightness immediately
-            if (new_mode == BACKLIGHT_MODE_AUTO_TIME) {
+            if (new_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
                 cyd_display_adjust_brightness_for_time();
             }
         } else {
@@ -544,9 +544,9 @@ static void update_brightness_icon(void) {
         return;
     }
     
-    backlight_mode_t current_mode = cyd_display_get_backlight_mode();
+    cyd_backlight_mode_t current_mode = cyd_display_get_backlight_mode();
     
-    if (current_mode == BACKLIGHT_MODE_AUTO_TIME) {
+    if (current_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         // Auto mode - show auto brightness icon
         lv_img_set_src(brightness_icon, &ui_img_icon_auto_brightness_16p_png);
         ESP_LOGI(TAG, "Brightness icon set to AUTO mode");
@@ -561,18 +561,18 @@ static void update_brightness_icon(void) {
  * @brief Handle brightness mode changes
  */
 static void brightness_mode_event_handler(void) {
-    backlight_mode_t current_mode = cyd_display_get_backlight_mode();
+    cyd_backlight_mode_t current_mode = cyd_display_get_backlight_mode();
     
     ESP_LOGI(TAG, "Brightness mode changed to: %s", 
-             (current_mode == BACKLIGHT_MODE_AUTO_TIME) ? "AUTO" : "MANUAL");
+             (current_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) ? "AUTO" : "MANUAL");
     
     // Update the icon
     update_brightness_icon();
     
     // If switching to manual mode, disable auto brightness timer
-    if (current_mode == BACKLIGHT_MODE_MANUAL) {
+    if (current_mode == CYD_BACKLIGHT_MODE_MANUAL) {
         ESP_LOGI(TAG, "Manual mode: Auto brightness disabled");
-    } else if (current_mode == BACKLIGHT_MODE_AUTO_TIME) {
+    } else if (current_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         ESP_LOGI(TAG, "Auto mode: Auto brightness enabled");
         
         // Immediately adjust brightness for current time
@@ -621,7 +621,7 @@ static void init_leds(void) {
  * This timer reschedules itself to run at the next hour
  */
 static void brightness_adjust_timer_callback(void *arg) {
-    backlight_mode_t current_mode = cyd_display_get_backlight_mode();
+    cyd_backlight_mode_t current_mode = cyd_display_get_backlight_mode();
     int current_brightness = cyd_display_get_backlight_brightness();
     
     ESP_LOGD(TAG, "Brightness timer fired. Current mode: %d", current_mode);
@@ -631,7 +631,7 @@ static void brightness_adjust_timer_callback(void *arg) {
              get_current_time_string());
     
     // Only adjust brightness if we're in auto mode
-    if (current_mode == BACKLIGHT_MODE_AUTO_TIME) {
+    if (current_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         ESP_LOGI(TAG, "Auto brightness adjustment triggered at hour change");
         
         // Adjust brightness based on time of day
@@ -1063,7 +1063,7 @@ static void process_wifi_event_queue(void) {
             
             // If this is a time sync event and in auto mode, update brightness bar
             if (msg.event == WIFI_CLOCK_EVENT_TIME_SYNCED && 
-                cyd_display_get_backlight_mode() == BACKLIGHT_MODE_AUTO_TIME) {
+                cyd_display_get_backlight_mode() == CYD_BACKLIGHT_MODE_AUTO_TIME) {
                 
                 int adjusted_brightness = cyd_display_get_backlight_brightness();
                 
@@ -1123,7 +1123,7 @@ static void wifi_clock_event_handler(wifi_clock_event_t event, void *data) {
                 strlcpy(msg.info_text, "Time synced", sizeof(msg.info_text));
                 
                 // Trigger immediate brightness update when time sync occurs
-                if (cyd_display_get_backlight_mode() == BACKLIGHT_MODE_AUTO_TIME) {
+                if (cyd_display_get_backlight_mode() == CYD_BACKLIGHT_MODE_AUTO_TIME) {
                     ESP_LOGI(TAG, "Time synced - triggering immediate brightness adjustment");
                     
                     // Adjust brightness immediately
@@ -1585,8 +1585,8 @@ static void lvgl_task(void *arg) {
     cyd_display_save_brightness_to_nvs(saved_brightness);
     
     // Get current backlight mode and handle initial setup
-    backlight_mode_t initial_mode = cyd_display_get_backlight_mode();
-    if (initial_mode == BACKLIGHT_MODE_AUTO_TIME) {
+    cyd_backlight_mode_t initial_mode = cyd_display_get_backlight_mode();
+    if (initial_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         // If starting in auto mode, apply time-based brightness
         cyd_display_adjust_brightness_for_time();
         ESP_LOGI(TAG, "Initial auto brightness applied");
@@ -1648,8 +1648,8 @@ static void lvgl_task(void *arg) {
     // Update info label with mode and brightness
     if (label_info != NULL) {
         char info_buf[64];
-        backlight_mode_t mode = cyd_display_get_backlight_mode();
-        if (mode == BACKLIGHT_MODE_AUTO_TIME) {
+        cyd_backlight_mode_t mode = cyd_display_get_backlight_mode();
+        if (mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
             snprintf(info_buf, sizeof(info_buf), "System Ready - Auto Brightness: %d%%", cyd_display_get_backlight_brightness());
         } else {
             snprintf(info_buf, sizeof(info_buf), "System Ready - Manual Brightness: %d%%", cyd_display_get_backlight_brightness());
@@ -1718,7 +1718,7 @@ static void lvgl_task(void *arg) {
     ESP_LOGI(TAG, "Brightness timer scheduled in %lu seconds (next hour)", seconds_to_next_hour);
     
     // Force an immediate brightness check if in auto mode
-    if (initial_mode == BACKLIGHT_MODE_AUTO_TIME) {
+    if (initial_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         // Force an immediate brightness adjustment
         cyd_display_adjust_brightness_for_time();
         
@@ -1880,8 +1880,8 @@ static void lvgl_task(void *arg) {
         }
         
         // Check for brightness mode changes and update icon if needed
-        static backlight_mode_t last_brightness_mode = BACKLIGHT_MODE_MAX; // Invalid initial value
-        backlight_mode_t current_brightness_mode = cyd_display_get_backlight_mode();
+        static cyd_backlight_mode_t last_brightness_mode = CYD_BACKLIGHT_MODE_MAX; // Invalid initial value
+        cyd_backlight_mode_t current_brightness_mode = cyd_display_get_backlight_mode();
         if (current_brightness_mode != last_brightness_mode) {
             last_brightness_mode = current_brightness_mode;
             brightness_mode_event_handler();

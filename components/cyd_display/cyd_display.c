@@ -34,11 +34,55 @@ static const char *TAG = "CYD_DISPLAY";
 #define DISPLAY_SPI_FREQ        (CONFIG_CYD_DISPLAY_SPI_FREQ * 1000 * 1000)
 #define LVGL_BUF_LINES          CONFIG_CYD_DISPLAY_BUFFER_LINES
 
+// Display orientation flags
+#ifdef CONFIG_CYD_DISPLAY_SWAP_XY
+#define DISPLAY_SWAP_XY 1
+#else
+#define DISPLAY_SWAP_XY 0
+#endif
+
+#ifdef CONFIG_CYD_DISPLAY_MIRROR_X
+#define DISPLAY_MIRROR_X 1
+#else
+#define DISPLAY_MIRROR_X 0
+#endif
+
+#ifdef CONFIG_CYD_DISPLAY_MIRROR_Y
+#define DISPLAY_MIRROR_Y 1
+#else
+#define DISPLAY_MIRROR_Y 0
+#endif
+
+#ifdef CONFIG_CYD_DISPLAY_INVERT_COLOR
+#define DISPLAY_INVERT_COLOR 1
+#else
+#define DISPLAY_INVERT_COLOR 0
+#endif
+
 // Touch pins
 #ifdef CONFIG_CYD_TOUCH_ENABLED
     #define PIN_NUM_TOUCH_CS    CONFIG_CYD_TOUCH_SPI_CS
     #define PIN_NUM_TOUCH_IRQ   CONFIG_CYD_TOUCH_SPI_IRQ
     #define TOUCH_SPI_FREQ      (CONFIG_CYD_TOUCH_SPI_FREQ * 1000 * 1000)
+#endif
+
+// Touch orientation flags
+#ifdef CONFIG_CYD_TOUCH_SWAP_XY
+#define TOUCH_SWAP_XY 1
+#else
+#define TOUCH_SWAP_XY 0
+#endif
+
+#ifdef CONFIG_CYD_TOUCH_INVERT_X
+#define TOUCH_INVERT_X 1
+#else
+#define TOUCH_INVERT_X 0
+#endif
+
+#ifdef CONFIG_CYD_TOUCH_INVERT_Y
+#define TOUCH_INVERT_Y 1
+#else
+#define TOUCH_INVERT_Y 0
 #endif
 
 // Backlight pins
@@ -49,8 +93,37 @@ static const char *TAG = "CYD_DISPLAY";
     #define MAX_BRIGHTNESS      CONFIG_CYD_BACKLIGHT_MAX_BRIGHTNESS
 #endif
 
+// Touch calibration values
+#ifdef CONFIG_CYD_TOUCH_X_MIN
+#define TOUCH_X_MIN CONFIG_CYD_TOUCH_X_MIN
+#else
+#define TOUCH_X_MIN 18
+#endif
+
+#ifdef CONFIG_CYD_TOUCH_X_MAX
+#define TOUCH_X_MAX CONFIG_CYD_TOUCH_X_MAX
+#else
+#define TOUCH_X_MAX 301
+#endif
+
+#ifdef CONFIG_CYD_TOUCH_Y_MIN
+#define TOUCH_Y_MIN CONFIG_CYD_TOUCH_Y_MIN
+#else
+#define TOUCH_Y_MIN 12
+#endif
+
+#ifdef CONFIG_CYD_TOUCH_Y_MAX
+#define TOUCH_Y_MAX CONFIG_CYD_TOUCH_Y_MAX
+#else
+#define TOUCH_Y_MAX 460
+#endif
+
 // SPI bus
 #define LCD_HOST    SPI2_HOST
+
+// ========== Orientation Helper Macros ==========
+#define LVGL_HOR_RES DISPLAY_WIDTH
+#define LVGL_VER_RES DISPLAY_HEIGHT
 
 // ========== Global Handles ==========
 static esp_lcd_panel_io_handle_t io_handle = NULL;
@@ -60,11 +133,12 @@ static lv_disp_t *lvgl_disp = NULL;
 static lv_indev_t *lvgl_indev = NULL;
 
 // LVGL display buffer
-static lv_color_t *lvgl_buf = NULL;
+#define DISP_BUF_SIZE (240 * LVGL_BUF_LINES)
+static lv_color_t buf_2_1[DISP_BUF_SIZE];
+static lv_color_t buf_2_2[DISP_BUF_SIZE];
 static lv_disp_draw_buf_t disp_buf;
 
 // ========== Backlight Control Structure ==========
-#ifdef CONFIG_CYD_BACKLIGHT_ENABLED
 typedef struct {
     uint8_t channel;
     uint8_t duty;                    // Current brightness (0-100%)
@@ -84,16 +158,13 @@ static backlight_control_t backlight = {
     .last_manual_brightness = DEFAULT_BRIGHTNESS,
     .last_auto_update = 0
 };
-#endif // CONFIG_CYD_BACKLIGHT_ENABLED
 
 // ========== Forward Declarations ==========
 static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);
 static void lvgl_touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data);
-
-#ifdef CONFIG_CYD_BACKLIGHT_ENABLED
 static esp_err_t backlight_pwm_init(void);
 static void backlight_gpio_fallback_init(void);
-#endif
+static void map_touch_coordinates(uint16_t raw_x, uint16_t raw_y, uint16_t *mapped_x, uint16_t *mapped_y);
 
 // ========== Display Initialization ==========
 static esp_err_t spi_bus_init(void)
@@ -139,11 +210,12 @@ static esp_err_t display_panel_init(void)
         ESP_LOGE(TAG, "Failed to create panel IO: %s", esp_err_to_name(ret));
         return ret;
     }
+    ESP_LOGI(TAG, "Panel IO created successfully");
     
     // Initialize panel
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = PIN_NUM_RST,
-        .rgb_endian = LCD_RGB_ENDIAN_RGB,
+        .rgb_endian = LCD_RGB_ENDIAN_BGR,
         .bits_per_pixel = 16,
     };
     
@@ -152,24 +224,35 @@ static esp_err_t display_panel_init(void)
         ESP_LOGE(TAG, "Failed to create ST7796 panel: %s", esp_err_to_name(ret));
         return ret;
     }
+    ESP_LOGI(TAG, "Panel created successfully");
     
-    // Reset and initialize panel
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
     ret = esp_lcd_panel_reset(panel_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to reset panel: %s", esp_err_to_name(ret));
-        return ret;
+        ESP_LOGW(TAG, "Panel reset returned %s, continuing anyway", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Panel reset successful");
     }
+    
+    vTaskDelay(pdMS_TO_TICKS(200));
     
     ret = esp_lcd_panel_init(panel_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize panel: %s", esp_err_to_name(ret));
         return ret;
     }
+    ESP_LOGI(TAG, "Panel initialized successfully");
     
-    // Configure display orientation
-    ret = esp_lcd_panel_swap_xy(panel_handle, CONFIG_CYD_DISPLAY_SWAP_XY);
-    ret = esp_lcd_panel_mirror(panel_handle, CONFIG_CYD_DISPLAY_MIRROR_X, CONFIG_CYD_DISPLAY_MIRROR_Y);
-    ret = esp_lcd_panel_invert_color(panel_handle, CONFIG_CYD_DISPLAY_INVERT_COLOR);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Configure orientation using flags
+    esp_lcd_panel_swap_xy(panel_handle, DISPLAY_SWAP_XY);
+    esp_lcd_panel_mirror(panel_handle, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+    esp_lcd_panel_invert_color(panel_handle, DISPLAY_INVERT_COLOR);
+    
+    ESP_LOGI(TAG, "Orientation configured: swap=%d, mirror_x=%d, mirror_y=%d, invert=%d", 
+             DISPLAY_SWAP_XY, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_INVERT_COLOR);
     
     // Turn on display
     ret = esp_lcd_panel_disp_on_off(panel_handle, true);
@@ -177,8 +260,10 @@ static esp_err_t display_panel_init(void)
         ESP_LOGE(TAG, "Failed to turn on display: %s", esp_err_to_name(ret));
         return ret;
     }
+    ESP_LOGI(TAG, "Display turned on");
     
-    ESP_LOGI(TAG, "Display panel initialized successfully");
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
     return ESP_OK;
 }
 
@@ -186,6 +271,8 @@ static esp_err_t display_panel_init(void)
 static esp_err_t touch_init(void)
 {
     ESP_LOGI(TAG, "Initializing XPT2046 touch controller");
+    ESP_LOGI(TAG, "Touch SPI config: CS=%d, IRQ=%d, FREQ=%d Hz", 
+             PIN_NUM_TOUCH_CS, PIN_NUM_TOUCH_IRQ, TOUCH_SPI_FREQ);
     
     // Configure touch panel IO (SPI)
     esp_lcd_panel_io_spi_config_t tp_io_config = {
@@ -204,6 +291,7 @@ static esp_err_t touch_init(void)
         ESP_LOGE(TAG, "Failed to create touch panel IO: %s", esp_err_to_name(ret));
         return ret;
     }
+    ESP_LOGI(TAG, "Touch panel IO created successfully");
     
     // Configure touch
     esp_lcd_touch_config_t tp_cfg = {
@@ -216,11 +304,14 @@ static esp_err_t touch_init(void)
             .interrupt = 0,
         },
         .flags = {
-            .swap_xy = CONFIG_CYD_TOUCH_SWAP_XY,
-            .mirror_x = CONFIG_CYD_TOUCH_MIRROR_X,
-            .mirror_y = CONFIG_CYD_TOUCH_MIRROR_Y,
+            .swap_xy = 0,  // We'll handle swapping in software
+            .mirror_x = 0,
+            .mirror_y = 0,
         },
     };
+    
+    ESP_LOGI(TAG, "Touch config: swap_xy=%d, mirror_x=%d, mirror_y=%d", 
+             tp_cfg.flags.swap_xy, tp_cfg.flags.mirror_x, tp_cfg.flags.mirror_y);
     
     ret = esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &touch_handle);
     if (ret != ESP_OK) {
@@ -229,9 +320,48 @@ static esp_err_t touch_init(void)
     }
     
     ESP_LOGI(TAG, "Touch controller initialized successfully");
+    ESP_LOGI(TAG, "Touch calibration: X[min=%d, max=%d], Y[min=%d, max=%d]",
+             TOUCH_X_MIN, TOUCH_X_MAX, TOUCH_Y_MIN, TOUCH_Y_MAX);
+    ESP_LOGI(TAG, "Touch mapping: swap=%d, invert_x=%d, invert_y=%d", 
+             TOUCH_SWAP_XY, TOUCH_INVERT_X, TOUCH_INVERT_Y);
+    
     return ESP_OK;
 }
 #endif // CONFIG_CYD_TOUCH_ENABLED
+
+/**
+ * @brief Map raw touch coordinates to screen coordinates using calibration
+ */
+static void map_touch_coordinates(uint16_t raw_x, uint16_t raw_y,
+                                  uint16_t *mapped_x, uint16_t *mapped_y)
+{
+    ESP_LOGI(TAG, "RAW TOUCH: X=%d Y=%d", raw_x, raw_y);
+
+    uint16_t proc_x = raw_x;
+    uint16_t proc_y = raw_y;
+
+    /* Clamp to calibration ranges */
+    if (proc_x < TOUCH_X_MIN) proc_x = TOUCH_X_MIN;
+    if (proc_x > TOUCH_X_MAX) proc_x = TOUCH_X_MAX;
+    if (proc_y < TOUCH_Y_MIN) proc_y = TOUCH_Y_MIN;
+    if (proc_y > TOUCH_Y_MAX) proc_y = TOUCH_Y_MAX;
+
+    /* Map to screen coordinates */
+    uint16_t screen_x = ((proc_x - TOUCH_X_MIN) * (DISPLAY_WIDTH - 1)) /
+                        (TOUCH_X_MAX - TOUCH_X_MIN);
+    
+    uint16_t screen_y = ((proc_y - TOUCH_Y_MIN) * (DISPLAY_HEIGHT - 1)) /
+                        (TOUCH_Y_MAX - TOUCH_Y_MIN);
+
+    /* Force Y inversion (your hardware requires this) */
+    screen_y = (DISPLAY_HEIGHT - 1) - screen_y;
+
+    /* Apply display swap */
+    *mapped_x = screen_y;
+    *mapped_y = screen_x;
+
+    ESP_LOGI(TAG, "FINAL TOUCH: (%d,%d)", *mapped_x, *mapped_y);
+}
 
 static esp_err_t lvgl_init(void)
 {
@@ -240,25 +370,33 @@ static esp_err_t lvgl_init(void)
     // Initialize LVGL
     lv_init();
     
-    // Allocate LVGL display buffer
-    size_t buffer_size = DISPLAY_WIDTH * LVGL_BUF_LINES * sizeof(lv_color_t);
-    lvgl_buf = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA);
-    if (lvgl_buf == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate LVGL buffer (%u bytes)", buffer_size);
-        return ESP_ERR_NO_MEM;
+    // Calculate correct dimensions based on hardware orientation
+    uint16_t lvgl_width, lvgl_height;
+    
+    if (DISPLAY_SWAP_XY) {
+        lvgl_width = DISPLAY_HEIGHT;
+        lvgl_height = DISPLAY_WIDTH;
+        ESP_LOGI(TAG, "Portrait mode with HW swap: using %dx%d", lvgl_width, lvgl_height);
+    } else {
+        lvgl_width = DISPLAY_WIDTH;
+        lvgl_height = DISPLAY_HEIGHT;
     }
     
-    // Initialize LVGL draw buffer
-    lv_disp_draw_buf_init(&disp_buf, lvgl_buf, NULL, DISPLAY_WIDTH * LVGL_BUF_LINES);
+    // Initialize LVGL draw buffer with TWO buffers (double buffering)
+    lv_disp_draw_buf_init(&disp_buf, buf_2_1, buf_2_2, DISP_BUF_SIZE);
     
     // Initialize display driver
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = DISPLAY_WIDTH;
-    disp_drv.ver_res = DISPLAY_HEIGHT;
+    disp_drv.hor_res = lvgl_width;
+    disp_drv.ver_res = lvgl_height;
     disp_drv.flush_cb = lvgl_flush_cb;
     disp_drv.draw_buf = &disp_buf;
     disp_drv.user_data = panel_handle;
+    
+    // Important: Set these flags for better performance
+    disp_drv.full_refresh = 0;        // Don't force full refresh (use partial)
+    disp_drv.direct_mode = 0;         // Don't use direct mode
     
     // Register display driver
     lvgl_disp = lv_disp_drv_register(&disp_drv);
@@ -266,6 +404,9 @@ static esp_err_t lvgl_init(void)
         ESP_LOGE(TAG, "Failed to register LVGL display driver");
         return ESP_FAIL;
     }
+
+    ESP_LOGI(TAG, "LVGL initialized with %dx%d resolution using DOUBLE BUFFER", 
+             lvgl_width, lvgl_height);
     
     // Initialize input device driver if touch is enabled
     #ifdef CONFIG_CYD_TOUCH_ENABLED
@@ -285,7 +426,6 @@ static esp_err_t lvgl_init(void)
     }
     #endif
     
-    ESP_LOGI(TAG, "LVGL initialized successfully");
     return ESP_OK;
 }
 
@@ -308,26 +448,33 @@ static void lvgl_touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     esp_lcd_touch_handle_t touch = (esp_lcd_touch_handle_t) drv->user_data;
     
-    uint16_t touch_x[1] = {0};
-    uint16_t touch_y[1] = {0};
-    uint8_t touch_cnt = 0;
+    esp_lcd_touch_point_data_t touch_points[1];
+    uint8_t point_cnt = 0;
     
     esp_lcd_touch_read_data(touch);
-    bool touched = esp_lcd_touch_get_coordinates(touch, touch_x, touch_y, NULL, &touch_cnt, 1);
+    esp_err_t err = esp_lcd_touch_get_data(touch, touch_points, &point_cnt, 1);
     
-    if (touched && touch_cnt > 0) {
-        data->point.x = touch_x[0];
-        data->point.y = touch_y[0];
+    static uint16_t last_x = 0;
+    static uint16_t last_y = 0;
+    
+    if (err == ESP_OK && point_cnt > 0) {
+        uint16_t mapped_x, mapped_y;
+        map_touch_coordinates(touch_points[0].x, touch_points[0].y, &mapped_x, &mapped_y);
+        
+        data->point.x = mapped_x;
+        data->point.y = mapped_y;
+        last_x = mapped_x;
+        last_y = mapped_y;
         data->state = LV_INDEV_STATE_PRESSED;
     } else {
+        data->point.x = last_x;
+        data->point.y = last_y;
         data->state = LV_INDEV_STATE_RELEASED;
     }
 }
 #endif // CONFIG_CYD_TOUCH_ENABLED
 
 // ========== Backlight Functions ==========
-#ifdef CONFIG_CYD_BACKLIGHT_ENABLED
-
 static esp_err_t backlight_pwm_init(void)
 {
     if (backlight.initialized && backlight.pwm_enabled) {
@@ -393,17 +540,13 @@ void cyd_display_set_backlight_brightness(uint8_t brightness_percent)
     }
     
     // Apply min/max constraints
-    #ifdef MIN_BRIGHTNESS
-        if (brightness_percent < MIN_BRIGHTNESS) {
-            brightness_percent = MIN_BRIGHTNESS;
-        }
-    #endif
+    if (brightness_percent < MIN_BRIGHTNESS) {
+        brightness_percent = MIN_BRIGHTNESS;
+    }
     
-    #ifdef MAX_BRIGHTNESS
-        if (brightness_percent > MAX_BRIGHTNESS) {
-            brightness_percent = MAX_BRIGHTNESS;
-        }
-    #endif
+    if (brightness_percent > MAX_BRIGHTNESS) {
+        brightness_percent = MAX_BRIGHTNESS;
+    }
     
     if (brightness_percent > 100) brightness_percent = 100;
     
@@ -576,6 +719,7 @@ void cyd_display_adjust_brightness_for_time(void)
     int hour = timeinfo.tm_hour;
     uint8_t target_brightness;
     
+    #ifdef CONFIG_CYD_BACKLIGHT_ENABLED
     if (hour >= 22 || hour < 6) {
         target_brightness = CONFIG_CYD_BACKLIGHT_AUTO_NIGHT_BRIGHTNESS;
     } else if (hour >= 6 && hour < 8) {
@@ -587,6 +731,20 @@ void cyd_display_adjust_brightness_for_time(void)
     } else {
         target_brightness = CONFIG_CYD_BACKLIGHT_AUTO_LATE_EVENING_BRIGHTNESS;
     }
+    #else
+    // Default values if backlight not configured
+    if (hour >= 22 || hour < 6) {
+        target_brightness = 30;
+    } else if (hour >= 6 && hour < 8) {
+        target_brightness = 50;
+    } else if (hour >= 8 && hour < 18) {
+        target_brightness = 80;
+    } else if (hour >= 18 && hour < 20) {
+        target_brightness = 60;
+    } else {
+        target_brightness = 40;
+    }
+    #endif
     
     if (target_brightness != backlight.duty) {
         ESP_LOGI(TAG, "Auto-brightness: %d%% (hour: %d)", target_brightness, hour);
@@ -709,28 +867,57 @@ void cyd_display_test_backlight(void)
     
     ESP_LOGI(TAG, "=== BACKLIGHT TEST COMPLETE ===");
 }
-#endif // CONFIG_CYD_BACKLIGHT_ENABLED
+
+/**
+ * @brief Test touch functionality
+ */
+void cyd_display_test_touch(void)
+{
+    ESP_LOGI(TAG, "=== TOUCH TEST ===");
+    ESP_LOGI(TAG, "Touch handle: %p", touch_handle);
+    
+    if (touch_handle == NULL) {
+        ESP_LOGE(TAG, "Touch not initialized!");
+        return;
+    }
+    
+    ESP_LOGI(TAG, "Calibration: X[min=%d, max=%d], Y[min=%d, max=%d]",
+             TOUCH_X_MIN, TOUCH_X_MAX, TOUCH_Y_MIN, TOUCH_Y_MAX);
+    ESP_LOGI(TAG, "Touch mapping: swap=%d, invert_x=%d, invert_y=%d", 
+             TOUCH_SWAP_XY, TOUCH_INVERT_X, TOUCH_INVERT_Y);
+    ESP_LOGI(TAG, "Display swap: %d", DISPLAY_SWAP_XY);
+    
+    ESP_LOGI(TAG, "Press the screen to test touch (will run for 10 seconds)...");
+    
+    uint16_t x, y;
+    for (int i = 0; i < 100; i++) {
+        if (cyd_display_get_touch_point(&x, &y)) {
+            ESP_LOGI(TAG, "Touch detected! final: (%d, %d)", x, y);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    ESP_LOGI(TAG, "=== TOUCH TEST COMPLETE ===");
+}
 
 // ========== Public API Implementation ==========
 esp_err_t cyd_display_init(void)
 {
     ESP_LOGI(TAG, "Initializing CYD display subsystem");
     ESP_LOGI(TAG, "Display: %dx%d ST7796", DISPLAY_WIDTH, DISPLAY_HEIGHT);
-    
-    // Initialize SPI bus
+        
+    // Initialize SPI bus first
     ESP_ERROR_CHECK(spi_bus_init());
     
     // Initialize display panel
     ESP_ERROR_CHECK(display_panel_init());
     
-    #ifdef CONFIG_CYD_TOUCH_ENABLED
-    // Initialize touch controller
-    ESP_ERROR_CHECK(touch_init());
-    #endif
-    
-    #ifdef CONFIG_CYD_BACKLIGHT_ENABLED
     // Initialize backlight
     ESP_LOGI(TAG, "Initializing backlight on GPIO %d", BACKLIGHT_PIN);
+    
+    // Simple GPIO backlight first - turn on immediately
+    gpio_set_direction(BACKLIGHT_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(BACKLIGHT_PIN, 1);  // Turn on full brightness
+    ESP_LOGI(TAG, "Backlight set to ON (GPIO)");
     
     #ifdef CONFIG_CYD_BACKLIGHT_USE_NVS
         backlight.mode = cyd_display_load_mode_from_nvs();
@@ -742,19 +929,26 @@ esp_err_t cyd_display_init(void)
         #endif
     #endif
     
+    // Try PWM but don't fail if it doesn't work
     esp_err_t ret = backlight_pwm_init();
     if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "PWM init failed, using GPIO control");
         backlight_gpio_fallback_init();
     }
     
-    if (backlight.mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
-        cyd_display_adjust_brightness_for_time();
-    } else {
-        cyd_display_set_backlight_brightness(backlight.duty);
+    // Initialize touch if enabled
+    #ifdef CONFIG_CYD_TOUCH_ENABLED
+    ret = touch_init();
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Touch initialization failed, continuing without touch");
+        touch_handle = NULL;
     }
-    #endif // CONFIG_CYD_BACKLIGHT_ENABLED
+    #endif
     
-    // Initialize LVGL with our drivers
+    // Set brightness
+    cyd_display_set_backlight_brightness(DEFAULT_BRIGHTNESS);
+    
+    // Initialize LVGL LAST
     ESP_ERROR_CHECK(lvgl_init());
     
     ESP_LOGI(TAG, "CYD display subsystem initialized successfully");
@@ -778,12 +972,22 @@ bool cyd_display_get_touch_point(uint16_t *x, uint16_t *y)
         return false;
     }
     
-    uint16_t touch_x[1] = {0};
-    uint16_t touch_y[1] = {0};
-    uint8_t touch_cnt = 0;
+    esp_lcd_touch_point_data_t touch_points[1];
+    uint8_t point_cnt = 0;
     
     esp_lcd_touch_read_data(touch_handle);
-    return esp_lcd_touch_get_coordinates(touch_handle, touch_x, touch_y, NULL, &touch_cnt, 1);
+    esp_err_t err = esp_lcd_touch_get_data(touch_handle, touch_points, &point_cnt, 1);
+    
+    if (err == ESP_OK && point_cnt > 0) {
+        uint16_t mapped_x, mapped_y;
+        map_touch_coordinates(touch_points[0].x, touch_points[0].y, &mapped_x, &mapped_y);
+        
+        *x = mapped_x;
+        *y = mapped_y;
+        
+        return true;
+    }
+    return false;
     #else
     return false;
     #endif
@@ -791,10 +995,10 @@ bool cyd_display_get_touch_point(uint16_t *x, uint16_t *y)
 
 uint16_t cyd_display_get_width(void)
 {
-    return DISPLAY_WIDTH;
+    return LVGL_HOR_RES;
 }
 
 uint16_t cyd_display_get_height(void)
 {
-    return DISPLAY_HEIGHT;
+    return LVGL_VER_RES;
 }

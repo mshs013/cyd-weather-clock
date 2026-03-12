@@ -170,9 +170,9 @@ static esp_err_t astronomical_http_event_handler(esp_http_client_event_t *evt);
 static void log_memory_state(const char *location);
 
 // Response buffers - reduced sizes to save memory
-static char weather_response_buffer[2048];
-static char forecast_response_buffer[2048];
-static char astronomical_response_buffer[3072];
+static char weather_response_buffer[4096];
+static char forecast_response_buffer[4096];
+static char astronomical_response_buffer[4096];
 
 /**
  * @brief Log memory state for debugging
@@ -912,6 +912,9 @@ static bool parse_weather_response(const char *response) {
         return false;
     }
     
+    // Log first 200 chars for debugging
+    ESP_LOGD(TAG, "Response preview: %.200s", response);
+    
     uint64_t parse_start = esp_timer_get_time() / 1000;
     
     cJSON *root = cJSON_Parse(response);
@@ -923,71 +926,109 @@ static bool parse_weather_response(const char *response) {
     weather_data_t new_data = {0};
     new_data.enabled = weather_config.enabled;
     
+    // Open-Meteo API v2 uses different structure
     cJSON *current = cJSON_GetObjectItem(root, "current");
     if (current) {
+        // Get temperature
         cJSON *temp = cJSON_GetObjectItem(current, "temperature_2m");
-        if (temp) new_data.temperature = temp->valuedouble;
+        if (temp && cJSON_IsNumber(temp)) {
+            new_data.temperature = temp->valuedouble;
+        }
         
+        // Get weather code
         cJSON *code = cJSON_GetObjectItem(current, "weather_code");
-        if (code) new_data.weather_code = code->valueint;
+        if (code && cJSON_IsNumber(code)) {
+            new_data.weather_code = code->valueint;
+        }
         
+        // Get is_day
         cJSON *day = cJSON_GetObjectItem(current, "is_day");
-        if (day) new_data.is_day = (day->valueint != 0);
+        if (day && cJSON_IsNumber(day)) {
+            new_data.is_day = (day->valueint != 0);
+        }
         
+        // Get humidity
         cJSON *humidity = cJSON_GetObjectItem(current, "relative_humidity_2m");
-        if (humidity) new_data.humidity = humidity->valuedouble;
+        if (humidity && cJSON_IsNumber(humidity)) {
+            new_data.humidity = humidity->valuedouble;
+        }
         
+        // Get wind speed
         cJSON *wind_speed = cJSON_GetObjectItem(current, "wind_speed_10m");
-        if (wind_speed) new_data.wind_speed = wind_speed->valuedouble;
+        if (wind_speed && cJSON_IsNumber(wind_speed)) {
+            new_data.wind_speed = wind_speed->valuedouble;
+        }
         
+        // Get wind direction
         cJSON *wind_dir = cJSON_GetObjectItem(current, "wind_direction_10m");
-        if (wind_dir) new_data.wind_direction = wind_dir->valuedouble;
+        if (wind_dir && cJSON_IsNumber(wind_dir)) {
+            new_data.wind_direction = wind_dir->valuedouble;
+        }
         
+        // Get pressure
         cJSON *pressure = cJSON_GetObjectItem(current, "pressure_msl");
-        if (pressure) new_data.pressure = pressure->valuedouble;
+        if (pressure && cJSON_IsNumber(pressure)) {
+            new_data.pressure = pressure->valuedouble;
+        }
         
+        // Get apparent temperature (feels like)
         cJSON *feels = cJSON_GetObjectItem(current, "apparent_temperature");
-        if (feels) new_data.feels_like = feels->valuedouble;
+        if (feels && cJSON_IsNumber(feels)) {
+            new_data.feels_like = feels->valuedouble;
+        }
         
+        // Get precipitation
         cJSON *precip = cJSON_GetObjectItem(current, "precipitation");
-        if (precip) new_data.precipitation = precip->valuedouble;
-        
-        cJSON *hourly = cJSON_GetObjectItem(root, "hourly");
-        if (hourly) {
-            cJSON *precip_prob = cJSON_GetObjectItem(hourly, "precipitation_probability");
-            if (precip_prob && cJSON_IsArray(precip_prob)) {
-                cJSON *first = cJSON_GetArrayItem(precip_prob, 0);
-                if (first) new_data.rain_probability = first->valuedouble;
+        if (precip && cJSON_IsNumber(precip)) {
+            new_data.precipitation = precip->valuedouble;
+        }
+    }
+    
+    // Get daily data for min/max temps
+    cJSON *daily = cJSON_GetObjectItem(root, "daily");
+    if (daily) {
+        cJSON *temp_max = cJSON_GetObjectItem(daily, "temperature_2m_max");
+        if (temp_max && cJSON_IsArray(temp_max)) {
+            cJSON *first_max = cJSON_GetArrayItem(temp_max, 0);
+            if (first_max && cJSON_IsNumber(first_max)) {
+                new_data.temp_max = first_max->valuedouble;
             }
         }
         
-        cJSON *daily = cJSON_GetObjectItem(root, "daily");
-        if (daily) {
-            cJSON *temp_max = cJSON_GetObjectItem(daily, "temperature_2m_max");
-            if (temp_max && cJSON_IsArray(temp_max)) {
-                cJSON *first_max = cJSON_GetArrayItem(temp_max, 0);
-                if (first_max) new_data.temp_max = first_max->valuedouble;
-            }
-            
-            cJSON *temp_min = cJSON_GetObjectItem(daily, "temperature_2m_min");
-            if (temp_min && cJSON_IsArray(temp_min)) {
-                cJSON *first_min = cJSON_GetArrayItem(temp_min, 0);
-                if (first_min) new_data.temp_min = first_min->valuedouble;
+        cJSON *temp_min = cJSON_GetObjectItem(daily, "temperature_2m_min");
+        if (temp_min && cJSON_IsArray(temp_min)) {
+            cJSON *first_min = cJSON_GetArrayItem(temp_min, 0);
+            if (first_min && cJSON_IsNumber(first_min)) {
+                new_data.temp_min = first_min->valuedouble;
             }
         }
-        
-        time_t now;
-        struct tm timeinfo;
-        time(&now);
-        localtime_r(&now, &timeinfo);
-        strftime(new_data.last_update, sizeof(new_data.last_update), "%H:%M:%S", &timeinfo);
-        
+    }
+    
+    // Get hourly data for precipitation probability
+    cJSON *hourly = cJSON_GetObjectItem(root, "hourly");
+    if (hourly) {
+        cJSON *precip_prob = cJSON_GetObjectItem(hourly, "precipitation_probability");
+        if (precip_prob && cJSON_IsArray(precip_prob)) {
+            cJSON *first = cJSON_GetArrayItem(precip_prob, 0);
+            if (first && cJSON_IsNumber(first)) {
+                new_data.rain_probability = first->valuedouble;
+            }
+        }
+    }
+    
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    strftime(new_data.last_update, sizeof(new_data.last_update), "%H:%M:%S", &timeinfo);
+    
+    // Check if we got at least some valid data
+    if (new_data.temperature != 0 || new_data.weather_code != 0) {
         new_data.valid = true;
-        
-        ESP_LOGI(TAG, "Weather updated: %.1f°C, %s", new_data.temperature, 
-                 weather_get_description(new_data.weather_code));
+        ESP_LOGI(TAG, "Weather updated: %.1f°C, code: %d", 
+                 new_data.temperature, new_data.weather_code);
     } else {
-        ESP_LOGE(TAG, "No 'current' object in weather response");
+        ESP_LOGE(TAG, "Failed to extract weather data from response");
     }
     
     cJSON_Delete(root);
@@ -1023,6 +1064,8 @@ static bool parse_forecast_response(const char *response) {
         return false;
     }
     
+    ESP_LOGD(TAG, "Forecast response preview: %.200s", response);
+    
     uint64_t parse_start = esp_timer_get_time() / 1000;
     
     cJSON *root = cJSON_Parse(response);
@@ -1044,36 +1087,46 @@ static bool parse_forecast_response(const char *response) {
         
         if (dates && max_temps && min_temps && weather_codes) {
             int forecast_days = cJSON_GetArraySize(dates);
-            int days_to_parse = (forecast_days - 1) > MAX_FORECAST_DAYS ? MAX_FORECAST_DAYS : (forecast_days - 1);
+            ESP_LOGI(TAG, "Forecast has %d days", forecast_days);
             
-            for (int i = 1; i <= days_to_parse; i++) {
-                int day_index = i - 1;
+            int days_to_parse = (forecast_days > MAX_FORECAST_DAYS) ? MAX_FORECAST_DAYS : forecast_days;
+            
+            // Start from index 0 for today, or index 1 for tomorrow?
+            // Let's use index 0 for simplicity
+            for (int i = 0; i < days_to_parse; i++) {
+                int day_index = i;
                 
+                // Parse date
                 cJSON *date_json = cJSON_GetArrayItem(dates, i);
                 if (date_json && cJSON_IsString(date_json)) {
                     int year, month, day;
                     if (sscanf(date_json->valuestring, "%d-%d-%d", &year, &month, &day) == 3) {
-                        snprintf(new_forecast.days[day_index].date, sizeof(new_forecast.days[0].date),
-                                "%02d-%02d", day, month);
+                        snprintf(new_forecast.days[day_index].date, 
+                                sizeof(new_forecast.days[0].date), "%02d-%02d", day, month);
                     }
                 }
                 
+                // Parse max temp
                 cJSON *max_temp_json = cJSON_GetArrayItem(max_temps, i);
                 if (max_temp_json && cJSON_IsNumber(max_temp_json)) {
                     new_forecast.days[day_index].temp_max = max_temp_json->valuedouble;
                 }
                 
+                // Parse min temp
                 cJSON *min_temp_json = cJSON_GetArrayItem(min_temps, i);
                 if (min_temp_json && cJSON_IsNumber(min_temp_json)) {
                     new_forecast.days[day_index].temp_min = min_temp_json->valuedouble;
                 }
                 
+                // Parse weather code
                 cJSON *code_json = cJSON_GetArrayItem(weather_codes, i);
                 if (code_json && cJSON_IsNumber(code_json)) {
                     new_forecast.days[day_index].weather_code = code_json->valueint;
+                    // Assume day for forecast days
                     new_forecast.days[day_index].is_day = true;
                 }
                 
+                // Parse precipitation probability
                 if (precip_probs && cJSON_IsArray(precip_probs)) {
                     cJSON *precip_json = cJSON_GetArrayItem(precip_probs, i);
                     if (precip_json && cJSON_IsNumber(precip_json)) {
@@ -1082,6 +1135,11 @@ static bool parse_forecast_response(const char *response) {
                 }
                 
                 new_forecast.days[day_index].valid = true;
+                ESP_LOGD(TAG, "Day %d: %s, max=%.1f, min=%.1f, code=%d", 
+                         i, new_forecast.days[day_index].date,
+                         new_forecast.days[day_index].temp_max,
+                         new_forecast.days[day_index].temp_min,
+                         new_forecast.days[day_index].weather_code);
             }
             
             new_forecast.num_days = days_to_parse;
@@ -1090,12 +1148,17 @@ static bool parse_forecast_response(const char *response) {
             struct tm timeinfo;
             time(&now);
             localtime_r(&now, &timeinfo);
-            strftime(new_forecast.last_update, sizeof(new_forecast.last_update), "%d-%b-%Y %H:%M:%S", &timeinfo);
+            strftime(new_forecast.last_update, sizeof(new_forecast.last_update), 
+                    "%d-%b-%Y %H:%M:%S", &timeinfo);
             
             new_forecast.valid = true;
             
             ESP_LOGI(TAG, "Forecast updated: %d days", new_forecast.num_days);
+        } else {
+            ESP_LOGE(TAG, "Missing daily arrays in forecast response");
         }
+    } else {
+        ESP_LOGE(TAG, "No 'daily' object in forecast response");
     }
     
     cJSON_Delete(root);
@@ -1115,6 +1178,8 @@ static bool parse_forecast_response(const char *response) {
             weather_notify_forecast_updated();
             return true;
         }
+    } else {
+        ESP_LOGE(TAG, "Forecast data not valid after parsing");
     }
     
     return false;
@@ -1376,17 +1441,19 @@ static esp_http_client_handle_t create_weather_client(void) {
              "latitude=%.6f&longitude=%.6f"
              "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
              "is_day,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m"
-             "&daily=temperature_2m_max,temperature_2m_min"
+             "&daily=temperature_2m_max,temperature_2m_min,weather_code"
              "&hourly=precipitation_probability"
              "&timezone=%s&forecast_days=2",
              weather_config.latitude, weather_config.longitude, weather_config.timezone);
+    
+    ESP_LOGD(TAG, "Weather URL: %s", url);
     
     esp_http_client_config_t config = {
         .url = url,
         .event_handler = weather_http_event_handler,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = 8000,
-        .buffer_size = 1024,
+        .buffer_size = 2048,
         .buffer_size_tx = 512,
         .disable_auto_redirect = true,
     };
@@ -1410,12 +1477,14 @@ static esp_http_client_handle_t create_forecast_client(void) {
              "&timezone=%s&forecast_days=6",
              weather_config.latitude, weather_config.longitude, weather_config.timezone);
     
+    ESP_LOGD(TAG, "Forecast URL: %s", url);
+    
     esp_http_client_config_t config = {
         .url = url,
         .event_handler = forecast_http_event_handler,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = 8000,
-        .buffer_size = 1024,
+        .buffer_size = 2048,
         .disable_auto_redirect = true,
     };
     
