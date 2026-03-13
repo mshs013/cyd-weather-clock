@@ -1,6 +1,6 @@
 # 🌤️ CYD Weather Clock
 
-A modern **ESP32 Cheap Yellow Display (CYD)** based **Weather + Clock System** built using **ESP-IDF** and **LVGL**.
+A modern **ESP32 Cheap Yellow Display (CYD)** based **Weather + Clock System** built using **ESP-IDF v5.x** and **LVGL 8.x**.
 
 This project transforms the ESP32 CYD board into a smart desktop device that displays:
 
@@ -52,23 +52,29 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 - 🔄 **Auto reconnect WiFi** with exponential backoff
 - 🌙 **Astronomical data** - Sunrise/sunset, moonrise/moonset, moon phases (Visual Crossing API - requires key)
 - 📊 **5-day weather forecast** with icons and temperature ranges
+- 📈 **FPS counter** and **CPU usage monitoring** for performance tuning
 
 ### Smart Display Control
 - 💡 **Automatic brightness control** based on time of day (configurable presets)
 - 👆 **Manual brightness control** with step adjustment (0% → 20% → 40% → 60% → 80% → 100%)
 - 🔆 **PWM dimming** support for smooth backlight control
 - 💾 **NVS storage** for persistent brightness and mode settings
+- 🔄 **Hourly auto-brightness timer** - Automatically adjusts at each hour change
 
-### WiFi Behavior
+### WiFi & Provisioning (Unified Component)
 - 📶 **Provisioning only available** when WiFi is disconnected or in connecting state
 - ✅ **WiFi icon disabled** when already connected - prevents accidental reprovisioning
-- 🔄 **Auto-reconnect** with exponential backoff (1s → 5s → 10s → 30s)
+- 🔄 **Auto-reconnect** with exponential backoff (1s → 5s → 10s → 30s) - always retries with provisioned credentials
 - 💾 **Credential storage** in NVS for persistent WiFi settings
+- 📱 **Provisioning success/failure callbacks** for UI integration
+- 🔐 **SoftAP provisioning** with QR code support using ESP-IDF provisioning manager
+- ⏱️ **Automatic daily time sync** to maintain accuracy
 
-### Advanced Features
-- 🌡️ **Weather details**: Temperature, feels like, humidity, pressure, wind speed/direction, rain probability
+### Astronomical Display Features
 - 🌓 **Moon phase visualization** with 8 distinct phase icons
-- 📈 **FPS counter** and **CPU usage monitoring** for performance tuning
+- ⏰ **Smart time display** with (N) indicators for next day events
+- 🔄 **Automatic midnight rollover** - Updates astronomical data at day change
+- ⏱️ **30-second indicator updates** for accurate (N) indicators
 
 ---
 
@@ -86,6 +92,7 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 - **Touch**: XPT2046 resistive touch controller
 - **Wireless**: Built-in WiFi and Bluetooth
 - **Interface**: SPI for display and touch
+- **Backlight**: PWM controlled (GPIO 12/27) with NVS storage
 
 ### Pin Configuration (Default CYD)
 | Function | GPIO Pin |
@@ -100,6 +107,9 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 | SPI MISO | 12 |
 | SPI SCK | 14 |
 
+### Configurable Pin Mapping
+All pins are configurable via `menuconfig` under **CYD Display Configuration** for custom hardware setups.
+
 ---
 
 ## 🏗️ Project Architecture
@@ -108,35 +118,9 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 cyd-weather-clock/
 │
 ├── main/
-│   ├── main.c                 # Application entry point
-│   └── CMakeLists.txt          # Component registration with UI sources
-│
-├── components/
-│   ├── cyd_display/            # CYD specific display driver (NEW)
-│   │   ├── cyd_display.c
-│   │   ├── cyd_display.h
-│   │   ├── Kconfig
-│   │   └── CMakeLists.txt
-│   │
-│   ├── wifi_clock/             # WiFi connection + status management
-│   │   ├── wifi_clock.c
-│   │   ├── wifi_clock.h        # Public API for WiFi clock
-│   │   ├── Kconfig             # WiFi clock configuration options
-│   │   └── CMakeLists.txt
-│   │
-│   ├── wifi_provisioning/       # WiFi provisioning handler (NEW)
-│   │   ├── wifi_prov.c
-│   │   ├── wifi_prov.h
-│   │   ├── Kconfig
-│   │   └── CMakeLists.txt
-│   │
-│   ├── weather/                 # Weather API handling
-│   │   ├── weather.c
-│   │   ├── weather.h            # Public API for weather data
-│   │   ├── Kconfig              # Weather configuration options
-│   │   └── CMakeLists.txt
-│   │
-│   └── ui/                      # LVGL GUI & screens (SquareLine Studio export)
+│   ├── main.c                 # Application entry point with UI coordination
+│   ├── CMakeLists.txt          # Component registration with UI sources
+│   └── ui/                    # LVGL GUI (SquareLine Studio export)
 │       ├── ui.c
 │       ├── ui.h
 │       ├── ui_events.c
@@ -151,22 +135,43 @@ cyd-weather-clock/
 │       │   ├── ui_Provision.h
 │       │   ├── ui_Forecast.c
 │       │   └── ui_Forecast.h
-│       ├── images/
-│       │   ├── ui_img_icon_01d_72p_png.c
-│       │   ├── ui_img_icon_01n_72p_png.c
-│       │   ├── ui_img_icon_wifion_24p_png.c
-│       │   ├── ui_img_icon_wifioff_24p_png.c
-│       │   ├── ui_img_icon_auto_brightness_16p_png.c
-│       │   ├── ui_img_icon_man_brightness_16p_png.c
-│       │   └── ... (all weather icons)
-│       └── CMakeLists.txt
+│       ├── components/         # Weather and UI components
+│       ├── fonts/              # Weather and UI fonts
+│       └── images/             # Weather and UI icons
+│
+├── components/
+│   ├── cyd_display/            # CYD specific display driver
+│   │   ├── cyd_display.c       # Display, touch, backlight control
+│   │   ├── cyd_display.h       # Public API
+│   │   ├── Kconfig             # Display configuration options
+│   │   └── CMakeLists.txt
+│   │
+│   ├── wifi_clock/             # UNIFIED WiFi + Provisioning component
+│   │   ├── wifi_clock.c        # WiFi management, NTP sync, provisioning
+│   │   ├── wifi_clock.h        # Public API
+│   │   ├── Kconfig             # WiFi & provisioning configuration
+│   │   └── CMakeLists.txt
+│   │
+│   ├── weather/                 # Weather API handling
+│   │   ├── weather.c            # Open-Meteo + Visual Crossing APIs
+│   │   ├── weather.h            # Public API
+│   │   ├── Kconfig              # Weather configuration
+│   │   └── CMakeLists.txt
+│   │
+│   ├── lvgl/                    # LVGL library
+│   │
+│   ├── esp_lcd_st7796/          # ESP LCD ST7796 driver (SPI && I80 && MIPI DSI)
+│   │
+│   ├── esp_lcd_touch_xpt2046/   # esp_lcd_touch driver for XPT2046 touch controllers
+│   │
+│   └── cjson/                   # cJSON library
 │
 ├── managed_components/
-│   ├── lvgl__lvgl/              # LVGL library
-│   └── espressif__esp-dsp/      # DSP library (if used)
+│   ├── espressif__cmake_utilities/   # ESP CMake Utility library
+│   └── espressif__esp_lcd_touch/     # ESP LCD Touch library
 │
 ├── docs/
-│   └── images/                  # Screenshots for README
+│   └── images/                       # README screenshots
 │
 ├── sdkconfig
 ├── sdkconfig.defaults
@@ -176,25 +181,21 @@ cyd-weather-clock/
 └── .gitignore
 ```
 
-### Component Overview with Headers
+### Component Overview
 
 | Component | Header File | Description |
 |-----------|-------------|-------------|
-| **cyd_display** | `cyd_display.h` | CYD-specific display initialization and control (NEW) |
-| **wifi_clock** | `wifi_clock.h` | WiFi connection, NTP sync |
-| **wifi_provisioning** | `wifi_prov.h` | Provisioning handler with QR code (NEW) |
+| **cyd_display** | `cyd_display.h` | CYD-specific display initialization, touch, backlight |
+| **wifi_clock** | `wifi_clock.h` | **UNIFIED**: WiFi connection, NTP sync, status management, SoftAP provisioning with QR code |
 | **weather** | `weather.h` | Weather data structures and API functions |
-| **ui** | `ui.h`, `ui_helpers.h`, `ui_events.h` | LVGL screens and event handlers |
+| **ui** | `ui.h`, `ui_helpers.h` | LVGL screens and event handlers |
 
 ### Kconfig Files
 
-Each component has its own `Kconfig` file that exposes configuration options in `menuconfig`:
-
 | Component | Kconfig | Configuration Options |
 |-----------|---------|----------------------|
-| **cyd_display** | `components/cyd_display/Kconfig` | Display SPI pins, orientation, backlight |
-| **wifi_clock** | `components/wifi_clock/Kconfig` | WiFi SSID/password, NTP servers, timezone |
-| **wifi_provisioning** | `components/wifi_provisioning/Kconfig` | Provisioning AP settings, timeout |
+| **cyd_display** | `components/cyd_display/Kconfig` | SPI pins, orientation, backlight presets |
+| **wifi_clock** | `components/wifi_clock/Kconfig` | **UNIFIED**: WiFi SSID/password, NTP servers, timezone, AP SSID, security, timeout, auto-reconnect, daily sync |
 | **weather** | `components/weather/Kconfig` | Lat/lon, update intervals, API keys |
 
 ---
@@ -232,18 +233,17 @@ idf.py menuconfig
 ```
 
 Navigate to key configuration sections:
-- **CYD Display Configuration** - SPI pins, backlight settings
-- **WiFi Clock Configuration** - Set your WiFi defaults, timezone, NTP servers
-- **WiFi Provisioning Configuration** - AP name, security, timeout
+- **CYD Display Configuration** - SPI pins, backlight settings, orientation
+- **WiFi Clock Configuration** - **UNIFIED**: Set WiFi defaults, timezone, NTP servers, provisioning AP settings
 - **Weather Configuration** - Set latitude/longitude, update intervals, API keys
 
-### Build System Notes
-The main component uses a recursive glob pattern to automatically include all UI source files:
+### Build System Features
+The main component uses automatic UI source inclusion:
 ```cmake
 file(GLOB_RECURSE UI_SOURCES "ui/*.c")
 idf_component_register(SRCS "main.c" ${UI_SOURCES}
                     INCLUDE_DIRS "." "ui"
-                    PRIV_REQUIRES spi_flash cyd_display wifi_provisioning wifi_clock weather)
+                    PRIV_REQUIRES spi_flash cyd_display wifi_clock weather)
 
 # Optimize binary size by removing unused sections
 target_link_options(${COMPONENT_LIB} PRIVATE 
@@ -252,10 +252,11 @@ target_link_options(${COMPONENT_LIB} PRIVATE
 )
 ```
 
-This ensures:
-- ✅ All UI files are automatically included without manual listing
-- ✅ Clean component dependencies management
+Benefits:
+- ✅ All UI files automatically included without manual listing
+- ✅ Clean component dependency management
 - ✅ Optimized binary size with dead code elimination
+- ✅ **Unified WiFi component** - Single dependency for all WiFi needs
 
 ### Build
 ```bash
@@ -277,7 +278,7 @@ idf.py fullclean
 
 ---
 
-## 📶 WiFi Provisioning
+## 📶 WiFi & Provisioning (Unified Component)
 
 ### ⚠️ Important: Provisioning Behavior
 The WiFi provisioning **only activates when the device is disconnected or in the process of connecting**. This prevents accidental reprovisioning when WiFi is already working.
@@ -297,18 +298,30 @@ The WiFi provisioning **only activates when the device is disconnected or in the
 4. **Connect** your phone/computer to this WiFi network
 5. **Scan** the QR code displayed on the screen using the ESP SoftAP Provisioning app
 6. **Enter** your home WiFi credentials in the provisioning app
-7. Device **connects automatically** and saves credentials
+7. Device **connects automatically** and saves credentials to NVS
 8. **Returns** to main screen with WiFi connected
 
-### If WiFi is Already Connected:
-- Tapping the WiFi icon shows "Wi-Fi already Connected" in the info bar
-- No provisioning screen appears
-- This prevents accidentally resetting your working connection
+### QR Code Format
+```json
+{"ver":"v1","name":"WIFI_CLOCK_PROV","pop":"optional_password","transport":"softap"}
+```
 
-### Default Credentials (if no provisioning)
-If you prefer, you can set default WiFi credentials in `menuconfig`:
-- `Component config → WiFi Clock Configuration → WiFi SSID`
-- `Component config → WiFi Clock Configuration → WiFi Password`
+### Provisioning Events
+- **Started**: "Waiting for credentials..."
+- **Success**: Auto-returns to main screen with WiFi ON icon
+- **Failed**: Shows error message, allows retry
+
+### WiFi Auto-Reconnect Behavior
+- **Always retries** when provisioned credentials exist (regardless of auto-reconnect setting)
+- **Exponential backoff**: 1s → 5s → 10s → 30s
+- **Resets retry counter** on successful connection
+- **Persistent credentials** stored in NVS
+
+### NTP Time Synchronization
+- **Automatic sync** when WiFi connects
+- **Daily resync** at configurable time (default 03:00)
+- **Manual sync** option available
+- **Timezone support** with POSIX conversion
 
 ---
 
@@ -336,7 +349,13 @@ Component config → Weather Configuration → Astronomical Configuration
 └── Update time (HH:MM) - Daily astronomical refresh time
 ```
 
-### Weather Codes
+### Weather Update Schedule
+- **Current Weather**: Every 5-30 minutes (configurable)
+- **5-day Forecast**: Daily at configured time (default 06:00)
+- **Astronomical Data**: Daily at configured time (default 00:05)
+- **Midnight Rollover**: Automatically updates next day events
+
+### Weather Codes & Icons
 | Code | Description | Day Icon | Night Icon |
 |------|-------------|----------|------------|
 | 0 | Clear sky | ☀️ 01d | 🌙 01n |
@@ -374,10 +393,16 @@ Component config → Weather Configuration → Astronomical Configuration
 | Evening (18:00-20:00) | 50% |
 | Late Evening (20:00-22:00) | 25% |
 
+### Automatic Timer
+- **Hourly adjustment** at `:00` minutes
+- **Immediate adjustment** when switching to Auto mode
+- **Time sync trigger** - Adjusts when NTP time is first synced
+
 ### Controls
 - **Tap brightness icon** - Toggle between Auto and Manual mode
 - **Drag brightness bar** - Adjust brightness (only in Manual mode)
 - **Settings saved** automatically to NVS
+- **Step adjustment** - 0% → 20% → 40% → 60% → 80% → 100%
 
 ---
 
@@ -387,7 +412,6 @@ Component config → Weather Configuration → Astronomical Configuration
 | WiFi icon | Tap | Open provisioning screen (only if disconnected) |
 | Brightness icon | Tap | Toggle auto/manual mode |
 | Brightness bar | Drag | Adjust brightness (manual mode only) |
-| Screen area | Tap | (Future) Navigation between screens |
 
 ---
 
@@ -399,44 +423,51 @@ Open with `idf.py menuconfig`
 #### CYD Display Configuration
 ```
 Component config → CYD Display Configuration
-├── Display SPI MOSI (GPIO 23)
-├── Display SPI MISO (GPIO 19)
-├── Display SPI SCK (GPIO 18)
-├── Display CS (GPIO 5)
-├── Display DC (GPIO 21)
-├── Display RST (GPIO 22)
-├── Display Backlight (GPIO 12)
-├── Touch CS (GPIO 15)
+├── Display SPI MOSI (GPIO 13)
+├── Display SPI MISO (GPIO 12)
+├── Display SPI SCK (GPIO 14)
+├── Display CS (GPIO 15)
+├── Display DC (GPIO 2)
+├── Display RST (GPIO -1)
+├── Display Backlight (GPIO 27)
+├── Touch CS (GPIO 33)
 ├── Touch IRQ (GPIO 36)
-└── Display Orientation (LANDSCAPE)
+├── Display Orientation (LANDSCAPE)
+├── Swap XY (Enable for portrait)
+├── Mirror X/Y
+└── Invert colors (if needed)
 ```
 
-#### WiFi Clock Configuration
+#### WiFi Clock Configuration (UNIFIED)
 ```
 Component config → WiFi Clock Configuration
-├── WiFi SSID (default fallback)
-├── WiFi Password (default fallback)
-├── Hostname (cyd-clock)
-├── Timezone (Asia/Dhaka)
-├── NTP Server 1 (pool.ntp.org)
-├── NTP Server 2 (time.google.com)
-├── NTP Server 3 (time.windows.com)
-├── Time Format (12h/24h)
-├── Enable auto-reconnect (YES)
-├── Enable daily sync (YES)
+├── WiFi Settings
+│   ├── WiFi SSID (default fallback)
+│   ├── WiFi Password (default fallback)
+│   ├── Hostname (cyd-clock)
+│   ├── Enable auto-reconnect (YES)
+│   └── Power save mode (WIFI_PS_NONE)
+│
+├── Time Settings
+│   ├── Timezone (Asia/Dhaka)
+│   ├── Time Format (12h/24h)
+│   ├── NTP Server 1 (pool.ntp.org)
+│   ├── NTP Server 2 (time.google.com)
+│   ├── NTP Server 3 (time.windows.com)
+│   ├── Enable daily sync (YES)
 │   └── Daily sync time (03:00)
-└── Power save mode (WIFI_PS_NONE)
-```
-
-#### WiFi Provisioning Configuration
-```
-Component config → WiFi Provisioning Configuration
-├── Provisioning AP SSID (WIFI_CLOCK_PROV)
-├── AP Security (WIFI_PROV_SEC_1)
-├── AP Password (optional)
-├── Max retries (5)
-├── Provisioning timeout (300 seconds)
-└── QR Code version (2)
+│
+├── Provisioning Settings
+│   ├── Provisioning AP SSID (WIFI_CLOCK_PROV)
+│   ├── AP Security (WIFI_PROV_SEC_1)
+│   ├── AP Password (optional)
+│   ├── Max retries (5)
+│   └── Provisioning timeout (300 seconds)
+│
+└── Task Configuration
+    ├── Stack size (4096)
+    ├── Priority (5)
+    └── Core ID (1)
 ```
 
 #### Weather Configuration
@@ -463,7 +494,7 @@ Component config → Weather Configuration
 
 ## 🧪 Troubleshooting
 
-### WiFi Provisioning Issues
+### WiFi & Provisioning Issues
 | Problem | Solution |
 |---------|----------|
 | **WiFi icon does nothing** | Check if WiFi is already connected - provisioning only works when disconnected |
@@ -471,6 +502,9 @@ Component config → Weather Configuration
 | **Provisioning starts but never completes** | Check phone is connected to device AP, verify password |
 | **QR code not showing** | Check if provisioning started correctly, verify display initialization |
 | **Can't find SoftAP** | Wait 2-3 seconds after tapping icon, scan again |
+| **Provisioning success but no connection** | Check credentials, router compatibility |
+| **WiFi won't reconnect** | Check if credentials are saved in NVS, verify router signal |
+| **Time never syncs** | Check NTP server reachability, verify timezone setting |
 
 ### Display Issues
 | Symptom | Solution |
@@ -478,7 +512,7 @@ Component config → Weather Configuration
 | **White screen** | Check SPI pins (CS, DC, RST), verify power, check display driver initialization |
 | **Flickering** | Adjust LVGL tick timer period (should be 10ms), increase display buffer size |
 | **Wrong colors** | Verify color depth setting (16-bit RGB565), check display initialization sequence |
-| **No backlight** | Check BL pin (GPIO 12), verify PWM configuration, test with GPIO simple mode |
+| **No backlight** | Check BL pin (GPIO 27), verify PWM configuration, test with GPIO simple mode |
 
 ### WiFi Connection Problems
 | Issue | Solution |
@@ -517,20 +551,16 @@ Component config → Weather Configuration
 idf.py monitor
 
 # Filter specific components
-idf.py monitor | grep -E "MAIN|WEATHER|WIFI|BACKLIGHT|PROV"
+idf.py monitor | grep -E "MAIN|WEATHER|WIFI|CYD_DISPLAY|PROV"
 
 # Check free memory
 # In monitor, type: free
 
 # Check tasks
 # In monitor, type: ps
-```
 
-### NVS Reset (if needed)
-```c
-// Add this temporarily in app_main() to reset all saved settings:
-nvs_flash_erase();  // Erase all NVS data
-nvs_flash_init();   // Re-initialize
+# Check WiFi status
+# In monitor, type: wifi status
 ```
 
 ---
@@ -545,7 +575,7 @@ nvs_flash_init();   // Re-initialize
 | **NTP sync** | 1-2 seconds |
 | **Weather update** | 1-3 seconds |
 | **RAM usage** | ~400KB (of ~4MB) |
-| **Flash usage** | ~2.5MB (of ~4MB) - Optimized with GC sections |
+| **Flash usage** | ~2.5MB (Optimized with GC sections) |
 | **Power consumption** | 80-150mA (depending on brightness) |
 
 ---
@@ -560,6 +590,8 @@ nvs_flash_init();   // Re-initialize
 | **Astronomical data** | Daily at configured time (default 00:05) |
 | **Brightness (auto mode)** | Every hour (at :00 minutes) |
 | **WiFi reconnect** | Exponential backoff (1s → 5s → 10s → 30s) |
+| **NTP daily sync** | Daily at configured time (default 03:00) |
+| **(N) Indicators** | Every 30 seconds (day change detection) |
 
 ---
 
@@ -574,12 +606,17 @@ nvs_flash_init();   // Re-initialize
 - [ ] **Swipe Navigation** - Switch between screens with gestures
 - [ ] **Sleep Mode** - Deep sleep between updates for battery operation
 
-### Recent Updates (v1.1)
-- ✅ **Modular component structure** - Separated display, WiFi, and provisioning logic
+### Recent Updates (v0.2)
+- ✅ **Modular component structure** - Separated display, WiFi, and weather logic
+- ✅ **Unified WiFi component** - Merged WiFi management and provisioning into single component
 - ✅ **Automated UI source inclusion** - Using `GLOB_RECURSE` for easier maintenance
 - ✅ **Binary size optimization** - Added linker flags to strip unused sections
 - ✅ **CYD-specific display driver** - Streamlined hardware initialization
-- ✅ **Dedicated provisioning component** - Cleaner separation of concerns
+- ✅ **Smart astronomical display** - (N) indicators for next day events
+- ✅ **Hourly auto-brightness timer** - Precise time-based adjustments
+- ✅ **Robust provisioning callbacks** - Smooth UI transitions during provisioning
+- ✅ **Auto-reconnect with provisioned credentials** - Always retries when credentials exist
+- ✅ **Removed legacy components**: `lvgl_esp32_drivers`, `backlight`, and `lv_port` (functionality merged into `cyd_display`)
 
 ---
 
@@ -711,4 +748,4 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 ---
 
-*Last Updated: March 09, 2026*
+*Last Updated: March 13, 2026*
