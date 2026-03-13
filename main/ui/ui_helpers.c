@@ -34,12 +34,6 @@ void _ui_label_set_property(lv_obj_t * target, int id, const char * val)
     if(id == _UI_LABEL_PROPERTY_TEXT) lv_label_set_text(target, val);
 }
 
-void _ui_roller_set_property(lv_obj_t * target, int id, int val)
-{
-    if(id == _UI_ROLLER_PROPERTY_SELECTED_WITH_ANIM) lv_roller_set_selected(target, val, LV_ANIM_ON);
-    if(id == _UI_ROLLER_PROPERTY_SELECTED) lv_roller_set_selected(target, val, LV_ANIM_OFF);
-}
-
 void _ui_slider_set_property(lv_obj_t * target, int id, int val)
 {
     if(id == _UI_SLIDER_PROPERTY_VALUE_WITH_ANIM) lv_slider_set_value(target, val, LV_ANIM_ON);
@@ -60,13 +54,6 @@ void _ui_screen_delete(void (*target)(void))
     }
 }
 
-void _ui_arc_increment(lv_obj_t * target, int val)
-{
-    int old = lv_arc_get_value(target);
-    lv_arc_set_value(target, old + val);
-    lv_event_send(target, LV_EVENT_VALUE_CHANGED, 0);
-}
-
 void _ui_bar_increment(lv_obj_t * target, int val, int anm)
 {
     int old = lv_bar_get_value(target);
@@ -78,11 +65,6 @@ void _ui_slider_increment(lv_obj_t * target, int val, int anm)
     int old = lv_slider_get_value(target);
     lv_slider_set_value(target, old + val, anm);
     lv_event_send(target, LV_EVENT_VALUE_CHANGED, 0);
-}
-
-void _ui_keyboard_set_target(lv_obj_t * keyboard, lv_obj_t * textarea)
-{
-    lv_keyboard_set_textarea(keyboard, textarea);
 }
 
 void _ui_flag_modify(lv_obj_t * target, int32_t flag, int value)
@@ -102,15 +84,6 @@ void _ui_state_modify(lv_obj_t * target, int32_t state, int value)
     }
     else if(value == _UI_MODIFY_STATE_ADD) lv_obj_add_state(target, state);
     else lv_obj_clear_state(target, state);
-}
-
-void _ui_textarea_move_cursor(lv_obj_t * target, int val)
-{
-    if(val == UI_MOVE_CURSOR_UP) lv_textarea_cursor_up(target);
-    if(val == UI_MOVE_CURSOR_RIGHT) lv_textarea_cursor_right(target);
-    if(val == UI_MOVE_CURSOR_DOWN) lv_textarea_cursor_down(target);
-    if(val == UI_MOVE_CURSOR_LEFT) lv_textarea_cursor_left(target);
-    lv_obj_add_state(target, LV_STATE_FOCUSED);
 }
 
 typedef void (*screen_destroy_cb_t)(void);
@@ -233,13 +206,6 @@ int32_t _ui_anim_callback_get_image_frame(lv_anim_t * a)
     return usr->val;
 }
 
-void _ui_arc_set_text_value(lv_obj_t * trg, lv_obj_t * src, const char * prefix, const char * postfix)
-{
-    char buf[_UI_TEMPORARY_STRING_BUFFER_SIZE];
-    lv_snprintf(buf, sizeof(buf), "%s%d%s", prefix, (int)lv_arc_get_value(src), postfix);
-    lv_label_set_text(trg, buf);
-}
-
 void _ui_slider_set_text_value(lv_obj_t * trg, lv_obj_t * src, const char * prefix, const char * postfix)
 {
     char buf[_UI_TEMPORARY_STRING_BUFFER_SIZE];
@@ -250,14 +216,6 @@ void _ui_checked_set_text_value(lv_obj_t * trg, lv_obj_t * src, const char * txt
 {
     if(lv_obj_has_state(src, LV_STATE_CHECKED)) lv_label_set_text(trg, txt_on);
     else lv_label_set_text(trg, txt_off);
-}
-
-void _ui_spinbox_step(lv_obj_t * target, int val)
-{
-    if(val > 0) lv_spinbox_increment(target);
-    else lv_spinbox_decrement(target);
-
-    lv_event_send(target, LV_EVENT_VALUE_CHANGED, 0);
 }
 
 void _ui_switch_theme(int val)
