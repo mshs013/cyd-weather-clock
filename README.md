@@ -432,8 +432,7 @@ Component config → CYD Display Configuration
 ├── Display Backlight (GPIO 27)
 ├── Touch CS (GPIO 33)
 ├── Touch IRQ (GPIO 36)
-├── Display Orientation (LANDSCAPE)
-├── Swap XY (Enable for portrait)
+├── Swap XY (Enable for LANDSCAPE)
 ├── Mirror X/Y
 └── Invert colors (if needed)
 ```
