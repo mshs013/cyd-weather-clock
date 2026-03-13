@@ -20,10 +20,13 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 ![CYD Hardware](docs/images/ESP32-3248S035.jpg)
 
 ### ⚙️ Display Configuration
-![Display Configuration](docs/images/lvgl_display.png)
+![Display Configuration](docs/images/cyd_display.png)
 
 ### ✋ Touch Configuration
-![Touch Configuration](docs/images/lvgl_touch.png)
+![Touch Configuration](docs/images/cyd_touch.png)
+
+### 👆 Brightness Configuration
+![Brightness Configuration](docs/images/cyd_brightness.png)
 
 ### 🚀 Startup Screen
 ![Startup Screen](docs/images/startup_screen.png)
@@ -87,15 +90,15 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 ### Pin Configuration (Default CYD)
 | Function | GPIO Pin |
 |----------|----------|
-| Display CS | 5 |
-| Display DC | 21 |
-| Display RST | 22 |
-| Display BL | 12 |
-| Touch CS | 15 |
+| Display CS | 15 |
+| Display DC | 2 |
+| Display RST | -1 |
+| Display BL | 27 |
+| Touch CS | 33 |
 | Touch IRQ | 36 |
-| SPI MOSI | 23 |
-| SPI MISO | 19 |
-| SPI SCK | 18 |
+| SPI MOSI | 13 |
+| SPI MISO | 12 |
+| SPI SCK | 14 |
 
 ---
 
