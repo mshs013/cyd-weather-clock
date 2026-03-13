@@ -87,15 +87,15 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 ### Pin Configuration (Default CYD)
 | Function | GPIO Pin |
 |----------|----------|
-| Display CS | 5 |
-| Display DC | 21 |
+| Display CS | 15 |
+| Display DC | 2 |
 | Display RST | -1 |
-| Display BL | 12 |
-| Touch CS | 15 |
+| Display BL | 27 |
+| Touch CS | 33 |
 | Touch IRQ | 36 |
-| SPI MOSI | 23 |
-| SPI MISO | 19 |
-| SPI SCK | 18 |
+| SPI MOSI | 13 |
+| SPI MISO | 12 |
+| SPI SCK | 14 |
 
 ---
 
