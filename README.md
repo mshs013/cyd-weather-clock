@@ -1,6 +1,6 @@
 # 🌤️ CYD Weather Clock
 
-A modern **ESP32 Cheap Yellow Display (CYD)** based **Weather + Clock System** built using **ESP-IDF v5.x** and **LVGL 8.x**.
+A modern **ESP32 Cheap Yellow Display (CYD)** based **Weather + Clock System** built using **ESP-IDF v5.x** and **LVGL 9.x**.
 
 This project transforms the ESP32 CYD board into a smart desktop device that displays:
 
@@ -48,7 +48,7 @@ This project transforms the ESP32 CYD board into a smart desktop device that dis
 - 🕒 **NTP-synchronized digital clock** with automatic timezone handling (12h/24h format)
 - 🌦️ **Live weather data** from Open-Meteo API (free, no API key required for weather)
 - 📶 **WiFi provisioning system** with QR code support - **Only activates when WiFi is disconnected or connecting**
-- 📱 **Touch UI** using LVGL 8.x with multi-screen navigation
+- 📱 **Touch UI** using LVGL 9.x with multi-screen navigation
 - 🔄 **Auto reconnect WiFi** with exponential backoff
 - 🌙 **Astronomical data** - Sunrise/sunset, moonrise/moonset, moon phases (Visual Crossing API - requires key)
 - 📊 **5-day weather forecast** with icons and temperature ranges
@@ -119,7 +119,7 @@ cyd-weather-clock/
 │
 ├── main/
 │   ├── main.c                 # Application entry point with UI coordination
-│   ├── CMakeLists.txt          # Component registration with UI sources
+│   ├── CMakeLists.txt         # Component registration with UI sources
 │   └── ui/                    # LVGL GUI (SquareLine Studio export)
 │       ├── ui.c
 │       ├── ui.h
@@ -605,7 +605,7 @@ idf.py monitor | grep -E "MAIN|WEATHER|WIFI|CYD_DISPLAY|PROV"
 - [ ] **Swipe Navigation** - Switch between screens with gestures
 - [ ] **Sleep Mode** - Deep sleep between updates for battery operation
 
-### Recent Updates (v0.2)
+### Recent Updates (v0.3)
 - ✅ **Modular component structure** - Separated display, WiFi, and weather logic
 - ✅ **Unified WiFi component** - Merged WiFi management and provisioning into single component
 - ✅ **Automated UI source inclusion** - Using `GLOB_RECURSE` for easier maintenance

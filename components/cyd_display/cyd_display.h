@@ -29,9 +29,9 @@ esp_err_t cyd_display_init(void);
 /**
  * @brief Get the LVGL display driver handle
  * 
- * @return lv_disp_t* Pointer to LVGL display driver
+ * @return lv_display_t* Pointer to LVGL display driver (LVGL 9.3 uses lv_display_t)
  */
-lv_disp_t* cyd_display_get_lvgl_disp(void);
+lv_display_t* cyd_display_get_lvgl_disp(void);  // Changed from lv_disp_t to lv_display_t
 
 /**
  * @brief Get the LVGL input device driver handle

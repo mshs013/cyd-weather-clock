@@ -129,14 +129,14 @@ static const char *TAG = "CYD_DISPLAY";
 static esp_lcd_panel_io_handle_t io_handle = NULL;
 static esp_lcd_panel_handle_t panel_handle = NULL;
 static esp_lcd_touch_handle_t touch_handle = NULL;
-static lv_disp_t *lvgl_disp = NULL;
+static lv_display_t *lvgl_disp = NULL;  // Changed from lv_disp_t to lv_display_t
 static lv_indev_t *lvgl_indev = NULL;
 
 // LVGL display buffer
-#define DISP_BUF_SIZE (240 * LVGL_BUF_LINES)
+#define DISP_BUF_SIZE (DISPLAY_WIDTH * LVGL_BUF_LINES)
 static lv_color_t buf_2_1[DISP_BUF_SIZE];
 static lv_color_t buf_2_2[DISP_BUF_SIZE];
-static lv_disp_draw_buf_t disp_buf;
+// No need for lv_draw_buf_t - we'll use raw buffers
 
 // ========== Backlight Control Structure ==========
 typedef struct {
@@ -160,8 +160,8 @@ static backlight_control_t backlight = {
 };
 
 // ========== Forward Declarations ==========
-static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);
-static void lvgl_touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data);
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
+static void lvgl_touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data);
 static esp_err_t backlight_pwm_init(void);
 static void backlight_gpio_fallback_init(void);
 static void map_touch_coordinates(uint16_t raw_x, uint16_t raw_y, uint16_t *mapped_x, uint16_t *mapped_y);
@@ -215,7 +215,7 @@ static esp_err_t display_panel_init(void)
     // Initialize panel
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = PIN_NUM_RST,
-        .rgb_endian = LCD_RGB_ENDIAN_BGR,
+        .rgb_endian = LCD_RGB_ENDIAN_RGB,
         .bits_per_pixel = 16,
     };
     
@@ -382,45 +382,39 @@ static esp_err_t lvgl_init(void)
         lvgl_height = DISPLAY_HEIGHT;
     }
     
-    // Initialize LVGL draw buffer with TWO buffers (double buffering)
-    lv_disp_draw_buf_init(&disp_buf, buf_2_1, buf_2_2, DISP_BUF_SIZE);
-    
-    // Initialize display driver
-    static lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = lvgl_width;
-    disp_drv.ver_res = lvgl_height;
-    disp_drv.flush_cb = lvgl_flush_cb;
-    disp_drv.draw_buf = &disp_buf;
-    disp_drv.user_data = panel_handle;
-    
-    // Important: Set these flags for better performance
-    disp_drv.full_refresh = 0;        // Don't force full refresh (use partial)
-    disp_drv.direct_mode = 0;         // Don't use direct mode
-    
-    // Register display driver
-    lvgl_disp = lv_disp_drv_register(&disp_drv);
-    if (lvgl_disp == NULL) {
-        ESP_LOGE(TAG, "Failed to register LVGL display driver");
+    // Initialize display driver - LVGL 9.3 uses lv_display_create
+    lv_display_t *disp = lv_display_create(lvgl_width, lvgl_height);
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "Failed to create LVGL display");
         return ESP_FAIL;
     }
+    
+    // Set draw buffers - LVGL 9.3 uses raw buffers directly
+    // No need for lv_draw_buf_init, just pass the raw buffers
+    lv_display_set_buffers(disp, buf_2_1, buf_2_2, 
+                           DISP_BUF_SIZE * sizeof(lv_color_t), 
+                           LV_DISPLAY_RENDER_MODE_PARTIAL);
+    
+    // Set flush callback
+    lv_display_set_flush_cb(disp, lvgl_flush_cb);
+    lv_display_set_user_data(disp, panel_handle);
+    
+    lvgl_disp = disp;
 
     ESP_LOGI(TAG, "LVGL initialized with %dx%d resolution using DOUBLE BUFFER", 
              lvgl_width, lvgl_height);
     
-    // Initialize input device driver if touch is enabled
+    // Initialize input device driver if touch is enabled - LVGL 9.3 style
     #ifdef CONFIG_CYD_TOUCH_ENABLED
     if (touch_handle != NULL) {
-        static lv_indev_drv_t indev_drv;
-        lv_indev_drv_init(&indev_drv);
-        indev_drv.type = LV_INDEV_TYPE_POINTER;
-        indev_drv.read_cb = lvgl_touch_read_cb;
-        indev_drv.user_data = touch_handle;
-        
-        lvgl_indev = lv_indev_drv_register(&indev_drv);
-        if (lvgl_indev == NULL) {
-            ESP_LOGW(TAG, "Failed to register LVGL input driver");
+        lv_indev_t *indev = lv_indev_create();
+        if (indev == NULL) {
+            ESP_LOGW(TAG, "Failed to create LVGL input device");
         } else {
+            lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+            lv_indev_set_read_cb(indev, lvgl_touch_read_cb);
+            lv_indev_set_user_data(indev, touch_handle);
+            lvgl_indev = indev;
             ESP_LOGI(TAG, "Touch input device registered");
         }
     }
@@ -430,23 +424,23 @@ static esp_err_t lvgl_init(void)
 }
 
 // ========== LVGL Callbacks ==========
-static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t) drv->user_data;
+    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t) lv_display_get_user_data(disp);
     
     int offsetx1 = area->x1;
     int offsetx2 = area->x2;
     int offsety1 = area->y1;
     int offsety2 = area->y2;
     
-    esp_lcd_panel_draw_bitmap(panel, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
-    lv_disp_flush_ready(drv);
+    esp_lcd_panel_draw_bitmap(panel, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, (void*)px_map);
+    lv_display_flush_ready(disp);
 }
 
 #ifdef CONFIG_CYD_TOUCH_ENABLED
-static void lvgl_touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static void lvgl_touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
-    esp_lcd_touch_handle_t touch = (esp_lcd_touch_handle_t) drv->user_data;
+    esp_lcd_touch_handle_t touch = (esp_lcd_touch_handle_t) lv_indev_get_user_data(indev);
     
     esp_lcd_touch_point_data_t touch_points[1];
     uint8_t point_cnt = 0;
@@ -955,7 +949,7 @@ esp_err_t cyd_display_init(void)
     return ESP_OK;
 }
 
-lv_disp_t* cyd_display_get_lvgl_disp(void)
+lv_display_t* cyd_display_get_lvgl_disp(void)  // Changed return type
 {
     return lvgl_disp;
 }

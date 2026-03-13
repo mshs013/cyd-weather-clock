@@ -4,6 +4,8 @@
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -137,6 +139,10 @@ static void brightness_mode_event_handler(void);
 static uint32_t seconds_until_next_hour(void);
 static const char* get_current_time_string(void);
 static void provisioning_event_callback(wifi_clock_event_t event, void* arg);
+static void process_lvgl_event(lvgl_event_msg_t *msg);
+static void handle_provisioning_success(void);
+static void handle_connection_success(void);
+static void update_wifi_status_label(wifi_clock_status_t status);
 
 /**
  * @brief Calculate seconds until next hour at 00 minutes
@@ -325,7 +331,7 @@ void ui_event_imageiconwifi(lv_event_t * e)
     /* Register callback for provisioning events */
     wifi_clock_register_callback(provisioning_event_callback);
 
-    /* Change screen */
+    /* Change screen - LVGL 9.3 still uses similar screen functions */
     _ui_screen_change(&ui_Provision,
                       LV_SCR_LOAD_ANIM_FADE_ON,
                       500, 0,
@@ -365,7 +371,7 @@ void ui_event_imageiconwifi(lv_event_t * e)
         
         ESP_LOGI(TAG, "QR Code Payload: %s", payload);
         
-        // Update the QR code
+        // Update the QR code - LVGL 9.3 qrcode functions remain the same
         if (ui_qrcode != NULL) {
             lv_res_t res = lv_qrcode_update(ui_qrcode, payload, strlen(payload));
             
@@ -497,7 +503,7 @@ static void provisioning_event_callback(wifi_clock_event_t event, void* arg)
 
             // Force Wi-Fi icon update immediately
             if (wifi_icon) {
-                lv_img_set_src(wifi_icon, &ui_img_icon_wifion_24p_png);
+                lv_image_set_src(wifi_icon, &ui_img_icon_wifion_24p_png); // LVGL 9.3 uses lv_image_set_src
                 lv_obj_invalidate(wifi_icon);
                 ESP_LOGI(TAG, "WiFi icon set to ON");
             }
@@ -525,7 +531,7 @@ static void provisioning_event_callback(wifi_clock_event_t event, void* arg)
             
             // Force Wi-Fi icon to ON when time is synced
             if (wifi_icon) {
-                lv_img_set_src(wifi_icon, &ui_img_icon_wifion_24p_png);
+                lv_image_set_src(wifi_icon, &ui_img_icon_wifion_24p_png); // LVGL 9.3 uses lv_image_set_src
                 lv_obj_invalidate(wifi_icon);
                 ESP_LOGI(TAG, "WiFi icon set to ON (time synced)");
             }
@@ -548,11 +554,11 @@ static void update_brightness_icon(void) {
     
     if (current_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
         // Auto mode - show auto brightness icon
-        lv_img_set_src(brightness_icon, &ui_img_icon_auto_brightness_16p_png);
+        lv_image_set_src(brightness_icon, &ui_img_icon_auto_brightness_16p_png); // LVGL 9.3 uses lv_image_set_src
         ESP_LOGI(TAG, "Brightness icon set to AUTO mode");
     } else {
         // Manual mode (or any other mode) - show manual brightness icon
-        lv_img_set_src(brightness_icon, &ui_img_icon_man_brightness_16p_png);
+        lv_image_set_src(brightness_icon, &ui_img_icon_man_brightness_16p_png); // LVGL 9.3 uses lv_image_set_src
         ESP_LOGI(TAG, "Brightness icon set to MANUAL mode");
     }
 }
@@ -704,7 +710,7 @@ void set_initial_display_of_labels(void) {
         lv_label_set_text(ui_ForecastWidgets[i].date_label, "--/--");
         lv_label_set_text(ui_ForecastWidgets[i].main_label, "N/A");
         lv_label_set_text(ui_ForecastWidgets[i].temp_label, "--/--°C");
-        lv_img_set_src(ui_ForecastWidgets[i].icon_image, &ui_img_icon_01d_72p_png);
+        lv_image_set_src(ui_ForecastWidgets[i].icon_image, &ui_img_icon_01d_72p_png); // LVGL 9.3 uses lv_image_set_src
     }
     if (forecast_label_info != NULL) lv_label_set_text(forecast_label_info, "------");
     
@@ -713,7 +719,7 @@ void set_initial_display_of_labels(void) {
     lv_label_set_text(ui_labelsunset, "--:--");
     lv_label_set_text(ui_labelmoonrise, "--:--");
     lv_label_set_text(ui_labelmoonset, "--:--");
-    lv_img_set_src(ui_iconmoon, &ui_img_icon_new_moon_32p_png);
+    lv_image_set_src(ui_iconmoon, &ui_img_icon_new_moon_32p_png); // LVGL 9.3 uses lv_image_set_src
 }
 
 /**
@@ -723,31 +729,31 @@ static void update_weather_icon(lv_obj_t *icon_obj, const char *icon_code, bool 
     if (icon_obj == NULL) return;
     
     if (strcmp(icon_code, "01d") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_01d_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_01d_72p_png);
     } else if (strcmp(icon_code, "01n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_01n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_01n_72p_png);
     } else if (strcmp(icon_code, "02d") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_02d_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_02d_72p_png);
     } else if (strcmp(icon_code, "02n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_02n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_02n_72p_png);
     } else if (strcmp(icon_code, "03d") == 0 || strcmp(icon_code, "03n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_03d_03n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_03d_03n_72p_png);
     } else if (strcmp(icon_code, "04d") == 0 || strcmp(icon_code, "04n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_04d_04n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_04d_04n_72p_png);
     } else if (strcmp(icon_code, "09d") == 0 || strcmp(icon_code, "09n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_09d_09n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_09d_09n_72p_png);
     } else if (strcmp(icon_code, "10d") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_10d_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_10d_72p_png);
     } else if (strcmp(icon_code, "10n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_10n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_10n_72p_png);
     } else if (strcmp(icon_code, "11d") == 0 || strcmp(icon_code, "11n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_11d_11n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_11d_11n_72p_png);
     } else if (strcmp(icon_code, "13d") == 0 || strcmp(icon_code, "13n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_13d_13n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_13d_13n_72p_png);
     } else if (strcmp(icon_code, "50d") == 0 || strcmp(icon_code, "50n") == 0) {
-        lv_img_set_src(icon_obj, &ui_img_icon_50d_50n_72p_png);
+        lv_image_set_src(icon_obj, &ui_img_icon_50d_50n_72p_png);
     } else {
-        lv_img_set_src(icon_obj, is_day ? &ui_img_icon_01d_72p_png : &ui_img_icon_01n_72p_png);
+        lv_image_set_src(icon_obj, is_day ? &ui_img_icon_01d_72p_png : &ui_img_icon_01n_72p_png);
     }
 }
 
@@ -939,21 +945,21 @@ static void update_astro_display_with_indicators(bool force_update) {
     
     // Update moon icon
     if (current_astro_data.moon_phase < 0.125f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_waning_crescent_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_waning_crescent_32p_png);
     } else if (current_astro_data.moon_phase < 0.25f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_last_quarter_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_last_quarter_32p_png);
     } else if (current_astro_data.moon_phase < 0.375f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_waning_gibbous_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_waning_gibbous_32p_png);
     } else if (current_astro_data.moon_phase < 0.5f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_full_moon_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_full_moon_32p_png);
     } else if (current_astro_data.moon_phase < 0.625f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_waxing_gibbous_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_waxing_gibbous_32p_png);
     } else if (current_astro_data.moon_phase < 0.75f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_first_quarter_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_first_quarter_32p_png);
     } else if (current_astro_data.moon_phase < 0.875f) {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_waxing_crescent_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_waxing_crescent_32p_png);
     } else {
-        lv_img_set_src(ui_iconmoon, &ui_img_icon_new_moon_32p_png);
+        lv_image_set_src(ui_iconmoon, &ui_img_icon_new_moon_32p_png);
     }
 
     last_astro_display_state = current_state;
@@ -1051,7 +1057,7 @@ static void process_wifi_event_queue(void) {
                     icon_src = &ui_img_icon_wifion_24p_png;
                 }
                 
-                lv_img_set_src(wifi_icon, icon_src);
+                lv_image_set_src(wifi_icon, icon_src); // LVGL 9.3 uses lv_image_set_src
                 lv_obj_invalidate(wifi_icon);
             }
             
@@ -1544,6 +1550,102 @@ static void weather_update_callback_handler(void) {
     ESP_LOGI(TAG, "Weather update callback received - forcing display update");
 }
 
+static void process_lvgl_event(lvgl_event_msg_t *msg) {
+    switch (msg->type) {
+        case LVGL_EVENT_PROVISIONING_SUCCESS:
+            handle_provisioning_success();
+            break;
+        case LVGL_EVENT_CONNECTION_SUCCESS:
+            handle_connection_success();
+            break;
+        case LVGL_EVENT_PROVISIONING_FAILED:
+            if (ui_labelprovisioninfo) {
+                lv_label_set_text(ui_labelprovisioninfo, msg->message);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+static void handle_provisioning_success(void) {
+    ESP_LOGI(TAG, "LVGL: Processing provisioning success");
+    
+    if (wifi_icon) {
+        lv_image_set_src(wifi_icon, &ui_img_icon_wifioff_24p_png);
+        lv_obj_invalidate(wifi_icon);
+    }
+    
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    
+    ESP_LOGI(TAG, "LVGL: Changing to main screen");
+    _ui_screen_change(&ui_Main,
+                     LV_SCR_LOAD_ANIM_FADE_ON,
+                     500, 0,
+                     &ui_Main_screen_init);
+    
+    vTaskDelay(pdMS_TO_TICKS(100));
+    if (wifi_icon) {
+        bool is_connected = wifi_clock_is_connected() || wifi_clock_is_time_synced();
+        const void *icon_src = is_connected ? &ui_img_icon_wifion_24p_png : &ui_img_icon_wifioff_24p_png;
+        lv_image_set_src(wifi_icon, icon_src);
+        lv_obj_invalidate(wifi_icon);
+        ESP_LOGI(TAG, "LVGL: Main screen - WiFi icon set to %s", is_connected ? "ON" : "OFF");
+    }
+    wifi_clock_set_auto_reconnect(true);
+}
+
+static void handle_connection_success(void) {
+    ESP_LOGI(TAG, "LVGL: Connection success after provisioning");
+    
+    if (wifi_icon) {
+        lv_image_set_src(wifi_icon, &ui_img_icon_wifion_24p_png);
+        lv_obj_invalidate(wifi_icon);
+        ESP_LOGI(TAG, "LVGL: WiFi icon set to ON");
+    }
+    
+    if (lv_scr_act() == ui_Provision) {
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        _ui_screen_change(&ui_Main,
+                         LV_SCR_LOAD_ANIM_FADE_ON,
+                         500, 0,
+                         &ui_Main_screen_init);
+    }
+}
+
+static void update_wifi_status_label(wifi_clock_status_t status) {
+    if (display_mutex != NULL && xSemaphoreTake(display_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        if (label_info != NULL) {
+            const char *status_text;
+            switch (status) {
+                case WIFI_CLOCK_STATUS_DISCONNECTED:
+                    status_text = "Wi-Fi: Disconnected";
+                    break;
+                case WIFI_CLOCK_STATUS_CONNECTING:
+                    status_text = "Wi-Fi: Connecting...";
+                    break;
+                case WIFI_CLOCK_STATUS_CONNECTED:
+                    status_text = "Wi-Fi: Connected";
+                    break;
+                case WIFI_CLOCK_STATUS_TIME_SYNCED:
+                    status_text = "Wi-Fi: Time Synced";
+                    break;
+                case WIFI_CLOCK_STATUS_PROVISIONING:
+                    status_text = "Wi-Fi: Provisioning...";
+                    break;
+                case WIFI_CLOCK_STATUS_ERROR:
+                    status_text = "Wi-Fi: Error";
+                    break;
+                default:
+                    status_text = "Wi-Fi: Unknown";
+                    break;
+            }
+            lv_label_set_text(label_info, status_text);
+        }
+        xSemaphoreGive(display_mutex);
+    }
+}
+
 /**
  * @brief LVGL task
  */
@@ -1567,7 +1669,7 @@ static void lvgl_task(void *arg) {
         ESP_LOGW(TAG, "Failed to create Wi-Fi event queue, continuing without it");
     }
 
-    // In lvgl_task, after creating wifi_event_queue:
+    // Create LVGL event queue
     lvgl_event_queue = xQueueCreate(5, sizeof(lvgl_event_msg_t));
     if (lvgl_event_queue == NULL) {
         ESP_LOGW(TAG, "Failed to create LVGL event queue");
@@ -1621,7 +1723,7 @@ static void lvgl_task(void *arg) {
     label_info = ui_labelinfo;
     forecast_label_info = ui_labelforecastinfo;
     wifi_icon = ui_imageiconwifi;
-    brightness_icon = ui_imageiconbrightness;  // Get brightness mode icon reference
+    brightness_icon = ui_imageiconbrightness;
     
     // Get weather UI object references
     label_city = ui_labelcity;
@@ -1641,8 +1743,9 @@ static void lvgl_task(void *arg) {
     set_initial_display_of_labels();
     
     // Log screen info
-    int screen_width = lv_disp_get_hor_res(NULL);
-    int screen_height = lv_disp_get_ver_res(NULL);
+    lv_display_t* disp = lv_display_get_default();
+    int screen_width = lv_display_get_horizontal_resolution(disp);
+    int screen_height = lv_display_get_vertical_resolution(disp);
     ESP_LOGI(TAG, "Screen resolution: %dx%d", screen_width, screen_height);
     
     // Update info label with mode and brightness
@@ -1690,14 +1793,13 @@ static void lvgl_task(void *arg) {
 
         char ready_msg[32];
         strftime(ready_msg, sizeof(ready_msg), "System Ready: %H:%M:%S", &now);
-        // Update final status
         if (label_info != NULL) {  
             lv_label_set_text(label_info, ready_msg);
             lv_obj_invalidate(label_info);
         }
     }
     
-    // Create timer for (N) indicator updates (every 30 seconds) - for day changes
+    // Create timer for (N) indicator updates (every 30 seconds)
     const esp_timer_create_args_t astro_indicator_timer_args = {
         .callback = &astro_indicator_timer_callback,
         .name = "astro_indicator_timer"
@@ -1705,7 +1807,7 @@ static void lvgl_task(void *arg) {
     ESP_ERROR_CHECK(esp_timer_create(&astro_indicator_timer_args, &astro_indicator_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(astro_indicator_timer, 30 * 1000000));
 
-    // Create timer for automatic brightness adjustment (initially one-shot, will reschedule)
+    // Create timer for automatic brightness adjustment
     const esp_timer_create_args_t brightness_adjust_timer_args = {
         .callback = &brightness_adjust_timer_callback,
         .name = "brightness_adjust_timer"
@@ -1719,34 +1821,49 @@ static void lvgl_task(void *arg) {
     
     // Force an immediate brightness check if in auto mode
     if (initial_mode == CYD_BACKLIGHT_MODE_AUTO_TIME) {
-        // Force an immediate brightness adjustment
         cyd_display_adjust_brightness_for_time();
-        
-        // Update the UI bar
         if (ui_brightness != NULL) {
             lv_bar_set_value(ui_brightness, cyd_display_get_backlight_brightness(), LV_ANIM_ON);
         }
-        
         ESP_LOGI(TAG, "Initial brightness check performed");
     }
     
     ESP_LOGI(TAG, "LVGL initialized, entering main loop");
     
-    // Main LVGL loop
+    // Track last update times for various operations
+    TickType_t last_clock_update = 0;
+    TickType_t last_weather_check = 0;
+    TickType_t last_astro_check = 0;
+    TickType_t last_brightness_check = 0;
+    cyd_backlight_mode_t last_brightness_mode = CYD_BACKLIGHT_MODE_MAX;
+    
+    // Main LVGL loop with proper yielding
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        lv_task_handler();
-
-        // Process any pending Wi-Fi events (safe in LVGL context)
+        // Process LVGL with time monitoring
+        uint32_t start_time = xTaskGetTickCount();
+        lv_timer_handler();
+        uint32_t elapsed = xTaskGetTickCount() - start_time;
+        
+        // If LVGL took too long, log it
+        if (elapsed > pdMS_TO_TICKS(15)) {
+            ESP_LOGD(TAG, "LVGL processing took %lu ms", elapsed * portTICK_PERIOD_MS);
+        }
+        
+        // Process any pending Wi-Fi events
         process_wifi_event_queue();
         
-        // Update clock display every 100ms (always updates because time changes)
-        static TickType_t last_clock_update = 0;
-        TickType_t now_ticks = xTaskGetTickCount();
-        if (now_ticks - last_clock_update >= pdMS_TO_TICKS(100)) {
-            last_clock_update = now_ticks;
+        // Process LVGL event queue
+        lvgl_event_msg_t lvgl_msg;
+        while (lvgl_event_queue && xQueueReceive(lvgl_event_queue, &lvgl_msg, 0) == pdTRUE) {
+            process_lvgl_event(&lvgl_msg);
+        }
+        
+        TickType_t current_ticks = xTaskGetTickCount();
+        
+        // Update clock display every 100ms
+        if (current_ticks - last_clock_update >= pdMS_TO_TICKS(100)) {
+            last_clock_update = current_ticks;
             
-            // Update clock display
             wifi_clock_time_data_t time_data;
             if (wifi_clock_get_time_data(&time_data) == ESP_OK) {
                 update_clock_display(&time_data);
@@ -1756,135 +1873,45 @@ static void lvgl_task(void *arg) {
             wifi_clock_status_t current_status = wifi_clock_get_status();
             if (current_status != last_wifi_status) {
                 last_wifi_status = current_status;
-                
-                // Update info label with status
-                if (display_mutex != NULL && xSemaphoreTake(display_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    if (label_info != NULL) {
-                        switch (current_status) {
-                            case WIFI_CLOCK_STATUS_DISCONNECTED:
-                                lv_label_set_text(label_info, "Wi-Fi: Disconnected");
-                                break;
-                            case WIFI_CLOCK_STATUS_CONNECTING:
-                                lv_label_set_text(label_info, "Wi-Fi: Connecting...");
-                                break;
-                            case WIFI_CLOCK_STATUS_CONNECTED:
-                                lv_label_set_text(label_info, "Wi-Fi: Connected");
-                                break;
-                            case WIFI_CLOCK_STATUS_TIME_SYNCED:
-                                lv_label_set_text(label_info, "Wi-Fi: Time Synced");
-                                break;
-                            case WIFI_CLOCK_STATUS_PROVISIONING:
-                                lv_label_set_text(label_info, "Wi-Fi: Provisioning...");
-                                break;
-                            case WIFI_CLOCK_STATUS_ERROR:
-                                lv_label_set_text(label_info, "Wi-Fi: Error");
-                                break;
-                            default:
-                                lv_label_set_text(label_info, "Wi-Fi: Unknown Status");
-                                break;
-                        }
-                    }
-                    xSemaphoreGive(display_mutex);
-                }
+                update_wifi_status_label(current_status);
             }
             
-            // Update FPS and CPU display (updates every second)
+            // Update FPS display
             update_fps_cpu_display();
         }
-
-        lvgl_event_msg_t lvgl_msg;
-        while (lvgl_event_queue && xQueueReceive(lvgl_event_queue, &lvgl_msg, 0) == pdTRUE) {
-            switch (lvgl_msg.type) {
-                case LVGL_EVENT_PROVISIONING_SUCCESS:
-                    ESP_LOGI(TAG, "LVGL: Processing provisioning success");
-
-                    // Set Wi-Fi icon to off initially (will be updated when connected)
-                    if (wifi_icon) {
-                        lv_img_set_src(wifi_icon, &ui_img_icon_wifioff_24p_png);
-                        lv_obj_invalidate(wifi_icon);
-                    }
-                    
-                    // Small delay to show success message
-                    vTaskDelay(pdMS_TO_TICKS(1500));
-                    
-                    // Change screen from LVGL task context
-                    ESP_LOGI(TAG, "LVGL: Changing to main screen");
-                    _ui_screen_change(&ui_Main,
-                                    LV_SCR_LOAD_ANIM_FADE_ON,
-                                    500, 0,
-                                    &ui_Main_screen_init);
-                    
-                    // AFTER screen change, immediately update icon based on connection status
-                    vTaskDelay(pdMS_TO_TICKS(100)); // Small delay for screen to load
-                    if (wifi_icon) {
-                        bool is_connected = wifi_clock_is_connected() || wifi_clock_is_time_synced();
-                        const void *icon_src = is_connected ? &ui_img_icon_wifion_24p_png : &ui_img_icon_wifioff_24p_png;
-                        lv_img_set_src(wifi_icon, icon_src);
-                        lv_obj_invalidate(wifi_icon);
-                        ESP_LOGI(TAG, "LVGL: Main screen - WiFi icon set to %s", is_connected ? "ON" : "OFF");
-                    }
-                    // Re-enable auto-reconnect after screen change
-                    wifi_clock_set_auto_reconnect(true);
-                    break;
-                    
-                case LVGL_EVENT_CONNECTION_SUCCESS:
-                    ESP_LOGI(TAG, "LVGL: Connection success after provisioning");
-
-                    // Force Wi-Fi icon update again (in LVGL task context)
-                    if (wifi_icon) {
-                        lv_img_set_src(wifi_icon, &ui_img_icon_wifion_24p_png);
-                        lv_obj_invalidate(wifi_icon);
-                        ESP_LOGI(TAG, "LVGL: WiFi icon set to ON");
-                    }
-                    
-                    // If we're still on provision screen, go back to main
-                    if (lv_scr_act() == ui_Provision) {
-                        vTaskDelay(pdMS_TO_TICKS(2000));
-                        _ui_screen_change(&ui_Main,
-                                        LV_SCR_LOAD_ANIM_FADE_ON,
-                                        500, 0,
-                                        &ui_Main_screen_init);
-                    }
-                    break;
-                    
-                case LVGL_EVENT_PROVISIONING_FAILED:
-                    ESP_LOGI(TAG, "LVGL: Provisioning failed");
-                    // Update UI on provision screen if needed
-                    if (ui_labelprovisioninfo) {
-                        lv_label_set_text(ui_labelprovisioninfo, lvgl_msg.message);
-                    }
-                    break;
-                    
-                default:
-                    break;
-            }
-        }
         
-        // Check for weather updates less frequently - every 2 seconds
-        static TickType_t last_weather_check = 0;
-        TickType_t current_ticks = xTaskGetTickCount();
+        // Check for weather updates every 2 seconds
         if (current_ticks - last_weather_check >= pdMS_TO_TICKS(2000)) {
             last_weather_check = current_ticks;
             
-            // Only update if new data is available
             update_weather_display_if_needed();
             update_forecast_display_if_needed();
             update_astronomical_display_if_needed();
         }
         
-        // Check for (N) indicator updates every second for immediate response
-        static TickType_t last_astro_check = 0;
+        // Check for (N) indicator updates every second
         if (current_ticks - last_astro_check >= pdMS_TO_TICKS(1000)) {
             last_astro_check = current_ticks;
             check_and_update_astro_indicators();
         }
         
-        // Check for brightness mode changes and update icon if needed
-        static cyd_backlight_mode_t last_brightness_mode = CYD_BACKLIGHT_MODE_MAX; // Invalid initial value
-        cyd_backlight_mode_t current_brightness_mode = cyd_display_get_backlight_mode();
-        if (current_brightness_mode != last_brightness_mode) {
-            last_brightness_mode = current_brightness_mode;
-            brightness_mode_event_handler();
+        // Check for brightness mode changes every 500ms
+        if (current_ticks - last_brightness_check >= pdMS_TO_TICKS(500)) {
+            last_brightness_check = current_ticks;
+            
+            cyd_backlight_mode_t current_brightness_mode = cyd_display_get_backlight_mode();
+            if (current_brightness_mode != last_brightness_mode) {
+                last_brightness_mode = current_brightness_mode;
+                brightness_mode_event_handler();
+            }
+        }
+        
+        // CRITICAL: Yield to other tasks - this prevents watchdog timeout
+        // Use a dynamic delay based on how long LVGL took
+        if (elapsed < pdMS_TO_TICKS(10)) {
+            vTaskDelay(pdMS_TO_TICKS(10 - (elapsed * portTICK_PERIOD_MS)));
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(5));
         }
     }
     
@@ -1910,11 +1937,11 @@ void app_main(void) {
     uint8_t saved_brightness = cyd_display_load_brightness_from_nvs();
     ESP_LOGI(TAG, "Loaded brightness from NVS: %d%%", saved_brightness);
     
-    // Create LVGL task on CORE 0
+    // Create LVGL task on CORE 0 with increased stack size
     BaseType_t result = xTaskCreatePinnedToCore(
         lvgl_task,
         "lvgl",
-        32768,
+        40960,  // Increased stack size
         (void*)(uintptr_t)saved_brightness,
         2,
         NULL,

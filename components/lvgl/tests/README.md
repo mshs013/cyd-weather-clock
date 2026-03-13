@@ -4,22 +4,45 @@ The tests in the folder can be run locally and automatically by GitHub CI.
 
 ## Running locally
 
-### Requirements (Linux)
+### Local
 
-Install requirements by:
+1. Install requirements by:
 
 ```sh
 scripts/install-prerequisites.sh
 ```
 
-### Run test
-1. Run all executable tests with `./tests/main.py test`.
-2. Build all build-only tests with `./tests/main.py build`.
-3. Clean prior test build, build all build-only tests,
+2. Run all executable tests with `./tests/main.py test`.
+3. Build all build-only tests with `./tests/main.py build`.
+4. Clean prior test build, build all build-only tests,
    run executable tests, and generate code coverage
    report `./tests/main.py --clean --report build test`.
+5. You can re-generate the test images by adding option `--update-image`.
+   It relies on scripts/LVGLImage.py, which requires pngquant and pypng.
+   You can run below command firstly and follow instructions in logs to install them.
+   `./tests/main.py --update-image test`
+   Note that different version of pngquant may generate different images.
+   As of now the generated image on CI uses pngquant 2.13.1-1.
 
 For full information on running tests run: `./tests/main.py --help`.
+
+### Docker
+
+To run the tests in an environment matching the CI setup:
+
+1. Build it
+
+```bash
+docker build . -f tests/Dockerfile -t lvgl_test_env
+```
+
+2. Run the tests
+
+```bash
+docker run --rm -it -v $(pwd):/work lvgl_test_env "./tests/main.py"
+```
+
+This ensures you are testing in a consistent environment with the same dependencies as the CI pipeline.
 
 ## Running automatically
 
@@ -44,14 +67,7 @@ See the list of asserts [here](https://github.com/ThrowTheSwitch/Unity/blob/mast
 
 There are some custom, LVGL specific asserts:
 - `TEST_ASSERT_EQUAL_SCREENSHOT("image1.png")` Render the active screen and compare its content with an image in the `ref_imgs` folder.
-If the compare fails `lvgl/test_screenshot_error.h` is created with the content of the frame buffer as an image.
-To see the that image `#include "test_screenshot_error.h"` and call `test_screenshot_error_show();`.
+   - If the reference image is not found it will be created automatically from the rendered screen.
+   - If the compare fails an `<image_name>_err.png` file will be created with the rendered content next to the reference image.
 - `TEST_ASSERT_EQUAL_COLOR(color1, color2)` Compare two colors.
 
-### Adding new reference images
-The reference images can be taken by copy-pasting the test code in to LVGL simulator and saving the screen.
-LVGL needs to
-- 800x480 resolution
-- 32 bit color depth
-- `LV_USE_PERF_MONITOR` and `LV_USE_MEM_MONITOR` disabled
-- use the default theme, with the default color (don't set a theme manually)
