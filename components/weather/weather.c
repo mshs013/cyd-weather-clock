@@ -1088,13 +1088,12 @@ static bool parse_forecast_response(const char *response) {
         if (dates && max_temps && min_temps && weather_codes) {
             int forecast_days = cJSON_GetArraySize(dates);
             ESP_LOGI(TAG, "Forecast has %d days", forecast_days);
-            
-            int days_to_parse = (forecast_days > MAX_FORECAST_DAYS) ? MAX_FORECAST_DAYS : forecast_days;
+            int days_to_parse = (forecast_days - 1) > MAX_FORECAST_DAYS ? MAX_FORECAST_DAYS : (forecast_days - 1);
             
             // Start from index 0 for today, or index 1 for tomorrow?
             // Let's use index 0 for simplicity
-            for (int i = 0; i < days_to_parse; i++) {
-                int day_index = i;
+            for (int i = 1; i <= days_to_parse; i++) {
+                int day_index = i - 1;
                 
                 // Parse date
                 cJSON *date_json = cJSON_GetArrayItem(dates, i);
