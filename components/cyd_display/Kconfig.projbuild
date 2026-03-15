@@ -200,7 +200,7 @@ menu "CYD Display Configuration"
 
                 config CYD_TOUCH_X_MIN
                     int "Touch X Minimum Raw Value"
-                    default 22
+                    default 14
                     range 0 4095
                     help
                         Minimum raw X value from touch controller.
@@ -218,7 +218,7 @@ menu "CYD Display Configuration"
 
                 config CYD_TOUCH_Y_MIN
                     int "Touch Y Minimum Raw Value"
-                    default 14
+                    default 9
                     range 0 4095
                     help
                         Minimum raw Y value from touch controller.

@@ -171,8 +171,8 @@ static void log_memory_state(const char *location);
 
 // Response buffers - reduced sizes to save memory
 static char weather_response_buffer[4096];
-static char forecast_response_buffer[4096];
-static char astronomical_response_buffer[4096];
+static char forecast_response_buffer[6144];
+static char astronomical_response_buffer[8192];
 
 /**
  * @brief Log memory state for debugging
@@ -1456,6 +1456,8 @@ static esp_http_client_handle_t create_weather_client(void) {
         .buffer_size = 2048,
         .buffer_size_tx = 512,
         .disable_auto_redirect = true,
+        .skip_cert_common_name_check = true, 
+        .keep_alive_enable = false,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -1485,7 +1487,10 @@ static esp_http_client_handle_t create_forecast_client(void) {
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = 8000,
         .buffer_size = 2048,
+        .buffer_size_tx = 512,
         .disable_auto_redirect = true,
+        .skip_cert_common_name_check = true, 
+        .keep_alive_enable = false,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -1541,7 +1546,10 @@ static esp_http_client_handle_t create_astro_client(void) {
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = 10000,
         .buffer_size = 2048,
+        .buffer_size_tx = 512,
         .disable_auto_redirect = true,
+        .skip_cert_common_name_check = true, 
+        .keep_alive_enable = false,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
