@@ -74,14 +74,14 @@ static ForecastWidget* create_panels(lv_obj_t *parent, int x, int widget_id) {
     lv_obj_set_style_text_color(widget->main_label, lv_color_hex(0xF0F0F0), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(widget->main_label, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(widget->main_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(widget->main_label, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(widget->main_label, &lv_font_montserrat_10, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     widget->icon_image = lv_img_create(widget->panel);
     lv_img_set_src(widget->icon_image, &ui_img_icon_01d_72p_png);
     lv_obj_set_width(widget->icon_image, 72);
     lv_obj_set_height(widget->icon_image, 72);
     lv_obj_set_x(widget->icon_image, 0);
-    lv_obj_set_y(widget->icon_image, 15);
+    lv_obj_set_y(widget->icon_image, 23);
     lv_obj_set_align(widget->icon_image, LV_ALIGN_CENTER);
     lv_obj_add_flag(widget->icon_image, LV_OBJ_FLAG_ADV_HITTEST);
     lv_obj_clear_flag(widget->icon_image, LV_OBJ_FLAG_SCROLLABLE);
@@ -95,7 +95,7 @@ static ForecastWidget* create_panels(lv_obj_t *parent, int x, int widget_id) {
     lv_obj_set_style_text_color(widget->temp_label, lv_color_hex(0xF0F0F0), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(widget->temp_label, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(widget->temp_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(widget->temp_label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(widget->temp_label, &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     return widget;
 }
