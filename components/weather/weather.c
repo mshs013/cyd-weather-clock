@@ -1451,11 +1451,11 @@ static esp_http_client_handle_t create_weather_client(void) {
         .url = url,
         .event_handler = weather_http_event_handler,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 8000,
+        .timeout_ms = 10000,
         .buffer_size = 2048,
-        .buffer_size_tx = 512,
+        .buffer_size_tx = 1024,
         .disable_auto_redirect = true,
-        .skip_cert_common_name_check = true, 
+        .skip_cert_common_name_check = false, 
         .keep_alive_enable = false,
     };
     
@@ -1484,11 +1484,11 @@ static esp_http_client_handle_t create_forecast_client(void) {
         .url = url,
         .event_handler = forecast_http_event_handler,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 8000,
+        .timeout_ms = 10000,
         .buffer_size = 2048,
-        .buffer_size_tx = 512,
+        .buffer_size_tx = 1024,
         .disable_auto_redirect = true,
-        .skip_cert_common_name_check = true, 
+        .skip_cert_common_name_check = false, 
         .keep_alive_enable = false,
     };
     
@@ -1545,9 +1545,9 @@ static esp_http_client_handle_t create_astro_client(void) {
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = 10000,
         .buffer_size = 2048,
-        .buffer_size_tx = 512,
+        .buffer_size_tx = 1024,
         .disable_auto_redirect = true,
-        .skip_cert_common_name_check = true, 
+        .skip_cert_common_name_check = false, 
         .keep_alive_enable = false,
     };
     
