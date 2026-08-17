@@ -117,7 +117,7 @@ menu "WiFi Clock Configuration"
 
         config WIFI_CLOCK_PROV_SOFT_AP_SSID
             string "SoftAP SSID"
-            default "WIFI_CLOCK_PROV"
+            default "POV_CYD_CLOCK"
             depends on WIFI_CLOCK_ENABLE_PROVISIONING
             help
                 SSID for SoftAP provisioning mode.
@@ -186,7 +186,7 @@ menu "WiFi Clock Configuration"
     menu "Advanced Configuration"
         config WIFI_CLOCK_ENABLE_LOGGING
             bool "Enable logging"
-            default y
+            default n
             help
                 Enable component logging.
 
