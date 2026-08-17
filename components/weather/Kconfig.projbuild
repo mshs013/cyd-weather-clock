@@ -9,17 +9,17 @@ menu "Weather Configuration"
     if WEATHER_ENABLE
         config WEATHER_LATITUDE
             string "Latitude"
-            default "40.7128"
+            default "23.87"
             depends on WEATHER_ENABLE
             help
-                Latitude for weather data (e.g., 40.7128 for Dhaka).
+                Latitude for weather data (e.g., 23.87 for Dhaka).
 
         config WEATHER_LONGITUDE
             string "Longitude"
-            default "-74.0060"
+            default "90.39"
             depends on WEATHER_ENABLE
             help
-                Longitude for weather data (e.g., -74.0060 for Dhaka).
+                Longitude for weather data (e.g., 90.39 for Dhaka).
 
         config WEATHER_TIMEZONE
             string "Timezone"

@@ -25,6 +25,7 @@ Thumbs.db
 *.bin
 *.elf
 *.map
+*.zip
 
 # CMake cache
 CMakeFiles/
