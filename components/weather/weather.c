@@ -1004,22 +1004,26 @@ static bool parse_weather_response(const char *response) {
         }
     }
     
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    int current_hour_index = timeinfo.tm_hour;
+
     // Get hourly data for precipitation probability
     cJSON *hourly = cJSON_GetObjectItem(root, "hourly");
     if (hourly) {
         cJSON *precip_prob = cJSON_GetObjectItem(hourly, "precipitation_probability");
         if (precip_prob && cJSON_IsArray(precip_prob)) {
-            cJSON *first = cJSON_GetArrayItem(precip_prob, 0);
+            cJSON *first = cJSON_GetArrayItem(precip_prob, current_hour_index);
             if (first && cJSON_IsNumber(first)) {
                 new_data.rain_probability = first->valuedouble;
             }
         }
     }
     
-    time_t now;
-    struct tm timeinfo;
-    time(&now);
-    localtime_r(&now, &timeinfo);
+    
     strftime(new_data.last_update, sizeof(new_data.last_update), "%H:%M:%S", &timeinfo);
     
     // Check if we got at least some valid data
